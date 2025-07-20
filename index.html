@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="./style.css">
+    </head>
+    <body>
+        <div id="experience">
+            <canvas id="experience-canvas"></canvas>
+        </div>
+
+        <div class="modal hidden">
+            <div class="modal-wrapper">
+                <div class="modal-header">
+                    <h1 class="modal-title">
+                      title
+                    </h1>
+                    <button class="modal-button">
+                      exit
+                    </button>
+                </div>
+                <div class="modal-content">
+                    <div class="modal-content-wrapper">
+                        <a 
+                            href="#"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="modal-visit-button hidden">view</a>
+                            <div class="modal-project-description">
+                                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa tempora aliquam voluptatem nisi at dicta perspiciatis quod ratione, voluptatibus, sint, nesciunt ullam repellat obcaecati aut cupiditate fugiat nulla recusandae eligendi?
+                                Sunt ex consequuntur illo eveniet distinctio pariatur voluptatem labore facere quidem saepe at voluptatum animi hic harum, quod, rerum impedit nemo porro expedita minima. Quasi natus facere dolorem facilis repellat.
+                                Soluta expedita ipsa porro cum voluptas est laborum possimus eum voluptatibus fuga debitis, voluptates consequuntur vitae suscipit nam velit molestiae nemo, labore assumenda tempore impedit incidunt mollitia sapiente. Aperiam, fugiat.
+                                Repellat voluptas soluta ratione reiciendis rerum neque quasi quis, magni amet id explicabo vitae veritatis? Eaque consequatur quos voluptatem nihil, ducimus, delectus expedita nisi saepe eligendi et doloribus, vitae corporis?
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script type="importmap">
+        {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"
+        }
+        }
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+        <script type="module" src="./main.js"></script>
+    </body>
+</html>

@@ -1,0 +1,55 @@
+*{
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    font-family: "Doto", sans-serif;
+}
+
+#experience {
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+#experience-canvas {
+  height: 100%;
+  width: 100%;
+
+}
+
+/* Utilities */
+.hidden {
+  display: none;
+}
+
+
+/* Modal */
+
+.modal {
+    z-index: 999;
+    padding: 1rem;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    max-width: 780px;
+    background-color: hsla(344, 57%, 91%, 0.1);
+    backdrop-filter: blur(10px);
+    color: white;
+    border-radius: 2rem;
+}
+
+.modal-wrapper {
+    padding: 1rem;
+}
+
+.modal-header {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
