@@ -9,7 +9,19 @@ const scene = new THREE.Scene();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
-
+const characterModels = {
+    totalStars: 5, // Total number of stars to collect
+    allCollected: false,
+    currentModel: "simplehead",
+    availableModels: {
+        "simplehead": "export", // Use the main export.glb file
+        "sungchan": "./sungchan.glb",
+        "eunseok": "./eunseok.glb", 
+        "shotaro": "./shotaro.glb",
+        "sohee": "./sohee.glb",
+        "anton": "./anton.glb"
+    }
+};
 
 
 // Create a large plane that covers the background
@@ -85,7 +97,7 @@ const sizes = {
 
 let character = {
     instance: null,
-    moveDistance: 2.5,
+    moveDistance: 8,
     jumpHeight: 2,
     isMoving: false,
     moveDuration: 0.1,
@@ -133,9 +145,9 @@ const retroShader = {
     'tDiffuse': { value: null },
     'time': { value: 0 },
     'resolution': { value: new THREE.Vector2(sizes.width, sizes.height) },
-    'scanlineIntensity': { value: 0.05 },
+    'scanlineIntensity': { value: 0.03 },
     'grainIntensity': { value: 0.05 },
-    'vignetteIntensity': { value: 0.01 }
+    'vignetteIntensity': { value: 0.005 }
   },
   vertexShader: `
     varying vec2 vUv;
@@ -171,7 +183,7 @@ const retroShader = {
       color.rgb += vec3(grain);
       
       // Subtle chromatic aberration
-      float aberration = 0.002;
+      float aberration = 0.001;
       color.r = texture2D(tDiffuse, vUv + vec2(aberration, 0.0)).r;
       color.b = texture2D(tDiffuse, vUv - vec2(aberration, 0.0)).b;
     
@@ -302,16 +314,19 @@ loader.load( './export.glb', function ( glb ) {
     if(child.name === "simplehead"){
         character.instance = child;
         
+        // Store reference to simplehead for later use
+        character.originalSimplehead = child;
+        
         // Create bounding box for character
         boundingBoxes.character = new THREE.Box3();
         
         // Create visual helper for character bounding box
         if(boundingBoxes.showHelpers) {
-          boundingBoxes.characterHelper = new THREE.Box3Helper(boundingBoxes.character, 0xff0000);
-          scene.add(boundingBoxes.characterHelper);
+            boundingBoxes.characterHelper = new THREE.Box3Helper(boundingBoxes.character, 0xff0000);
+            scene.add(boundingBoxes.characterHelper);
         }
-    
     }
+
     if(child.name === "Plane"){
         // change the color of the riize logo
         child.material.color = new THREE.Color().setHex(0xf0be4b);
@@ -608,7 +623,6 @@ function collectStar(starObject) {
 }
 
 function showNextMember(collectedCount) {
-    // Show members progressively (member0 is already visible)
     const memberElements = [
         document.querySelector('.member1'),
         document.querySelector('.member2'),
@@ -617,13 +631,17 @@ function showNextMember(collectedCount) {
         document.querySelector('.member5')
     ];
     
-    // Show the next member (collectedCount - 1 because we start from 0)
     if (collectedCount > 0 && collectedCount <= memberElements.length) {
         const memberToShow = memberElements[collectedCount - 1];
         if (memberToShow) {
             memberToShow.style.display = 'block';
             
-            // Optional: Add animation when member appears
+            // Add subtle indication that they're not clickable yet
+            if (!characterModels.allCollected) {
+                memberToShow.style.opacity = '0.7';
+                memberToShow.style.cursor = 'not-allowed';
+            }
+            
             if (typeof gsap !== 'undefined') {
                 gsap.from(memberToShow, {
                     scale: 0,
@@ -634,8 +652,134 @@ function showNextMember(collectedCount) {
         }
     }
     
-    // Optional: Log progress
+    // Check if all stars are collected
+    checkAllStarsCollected();
+    
     console.log(`Members visible: ${Math.min(collectedCount + 1, 6)}/6`);
+}
+
+function checkAllStarsCollected() {
+    const collectedCount = stars.collected.size;
+    const wasAllCollected = characterModels.allCollected;
+    characterModels.allCollected = collectedCount >= characterModels.totalStars;
+    
+    // If just completed collection, enable member clicking
+    if (characterModels.allCollected && !wasAllCollected) {
+        enableMemberClicking();
+        console.log("All stars collected! You can now click on members to change character!");
+    }
+    
+    return characterModels.allCollected;
+}
+
+function enableMemberClicking() {
+    const memberElements = document.querySelectorAll('[class^="member"]');
+    const membersContainer = document.querySelector('.members');
+    
+    // Clear any leftover inline styles
+    if (membersContainer) {
+        membersContainer.removeAttribute('style');
+    }
+    
+    memberElements.forEach(member => {
+        // Clear any leftover inline transform styles
+        member.style.transform = '';
+        member.style.translate = '';
+        member.style.rotate = '';
+        member.style.scale = '';
+        
+        // Set only what we need
+        member.style.cursor = 'pointer';
+        member.style.opacity = '1';
+        
+        // Add click event listener
+        member.addEventListener('click', (event) => {
+            const modelName = member.getAttribute('data-model');
+            if (modelName && characterModels.availableModels[modelName]) {
+                changeCharacterModel(modelName);
+            }
+        });
+    });
+}
+
+function changeCharacterModel(modelName) {
+    if (!characterModels.allCollected) {
+        console.log("Collect all stars first!");
+        return;
+    }
+    
+    if (!characterModels.availableModels[modelName]) {
+        console.log(`Model ${modelName} not available`);
+        return;
+    }
+    
+    console.log(`Changing character to ${modelName}`);
+    
+    // Store current character position and properties
+    const currentPosition = character.instance ? character.instance.position.clone() : new THREE.Vector3(0, 0, 0);
+    const currentRotation = character.instance ? character.instance.rotation.clone() : new THREE.Euler(0, 0, 0);
+    
+    // Hide the current character (don't remove if it's simplehead)
+    if (character.instance) {
+        if (characterModels.currentModel === "simplehead") {
+            // Hide simplehead instead of removing it
+            character.instance.visible = false;
+        } else {
+            // Remove external models completely
+            scene.remove(character.instance);
+        }
+    }
+    
+    // Special case for simplehead - it's already in the main scene
+    if (modelName === "simplehead") {
+        // Find simplehead in the already loaded export.glb and make it visible
+        scene.traverse(child => {
+            if (child.name === "simplehead") {
+                character.instance = child;
+                character.instance.position.copy(currentPosition);
+                character.instance.rotation.copy(currentRotation);
+                character.instance.visible = true; // Make sure it's visible
+                characterModels.currentModel = modelName;
+                console.log(`Character changed back to ${modelName}!`);
+                return;
+            }
+        });
+    } else {
+        // Load external model file
+        const loader = new GLTFLoader();
+        loader.load(
+            characterModels.availableModels[modelName],
+            function(glb) {
+                // Use the entire scene instead of just one mesh
+                let newCharacter = glb.scene;
+                
+                // Set position and rotation to match previous character
+                newCharacter.position.copy(currentPosition);
+                newCharacter.rotation.copy(currentRotation);
+                
+                // Update character reference
+                character.instance = newCharacter;
+                characterModels.currentModel = modelName;
+                
+                // Apply properties to all meshes in the scene
+                newCharacter.traverse(child => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
+                // Add to scene
+                scene.add(newCharacter);
+                
+                console.log(`Character changed to ${modelName}!`);
+            },
+            undefined,
+            function(error) {
+                console.error(`Error loading ${modelName} model:`, error);
+            }
+);
+    }
 }
 
 function updateStars() {
