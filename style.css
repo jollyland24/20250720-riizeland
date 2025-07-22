@@ -58,8 +58,8 @@
     position: fixed;
     top: 1.5rem;
     left: 50%;
-    transform: translateX(-50%);
-    width: 50%;
+    transform: translateX(-50%) !important; 
+    width: 40%;
     height: 4rem;
     background-color: rgba(143, 173, 255, 0);
     border-bottom: 1px solid rgba(255, 255, 255 ,0);
@@ -86,4 +86,26 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+[class^="member"] {
+    cursor: pointer;
+    animation: float 3s ease-in-out infinite;
+}
+
+/* Stagger the animations so they don't all float together */
+.member0 { animation-delay: 0s; }
+.member1 { animation-delay: 0.5s; }
+.member2 { animation-delay: 1s; }
+.member3 { animation-delay: 1.5s; }
+.member4 { animation-delay: 2s; }
+.member5 { animation-delay: 2.5s; }
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
 }
