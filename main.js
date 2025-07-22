@@ -509,7 +509,7 @@ function checkTapeCollision() {
     // Check if character bounding box intersects with tape bounding box
     if (boundingBoxes.character.intersectsBox(tape.boundingBox)) {
         bounceTape();
-        console.log('Tape bounced!');
+        // console.log('Tape bounced!');
     }
 }
 
@@ -572,7 +572,7 @@ function checkStarCollisionsBoundingBox() {
         // Check if bounding boxes intersect
         if (boundingBoxes.character.intersectsBox(starObject.boundingBox)) {
             collectStar(starObject);
-            console.log(`Star ${starObject.name} collected via bounding box collision!`);
+            // console.log(`Star ${starObject.name} collected via bounding box collision!`);
         }
     });
 }
@@ -581,7 +581,7 @@ function collectStar(starObject) {
     if (stars.collected.has(starObject.name)) return;
     
     stars.collected.add(starObject.name);
-    console.log(`Collected ${starObject.name}!`);
+    // console.log(`Collected ${starObject.name}!`);
 
     showNextMember(stars.collected.size);
 
@@ -655,7 +655,7 @@ function showNextMember(collectedCount) {
     // Check if all stars are collected
     checkAllStarsCollected();
     
-    console.log(`Members visible: ${Math.min(collectedCount + 1, 6)}/6`);
+    // console.log(`Members visible: ${Math.min(collectedCount + 1, 6)}/6`);
 }
 
 function checkAllStarsCollected() {
@@ -666,7 +666,7 @@ function checkAllStarsCollected() {
     // If just completed collection, enable member clicking
     if (characterModels.allCollected && !wasAllCollected) {
         enableMemberClicking();
-        console.log("All stars collected! You can now click on members to change character!");
+        // console.log("All stars collected! You can now click on members to change character!");
     }
     
     return characterModels.allCollected;
@@ -713,7 +713,7 @@ function changeCharacterModel(modelName) {
         return;
     }
     
-    console.log(`Changing character to ${modelName}`);
+    // console.log(`Changing character to ${modelName}`);
     
     // Store current character position and properties
     const currentPosition = character.instance ? character.instance.position.clone() : new THREE.Vector3(0, 0, 0);
@@ -740,7 +740,7 @@ function changeCharacterModel(modelName) {
                 character.instance.rotation.copy(currentRotation);
                 character.instance.visible = true; // Make sure it's visible
                 characterModels.currentModel = modelName;
-                console.log(`Character changed back to ${modelName}!`);
+                // console.log(`Character changed back to ${modelName}!`);
                 return;
             }
         });
@@ -772,11 +772,11 @@ function changeCharacterModel(modelName) {
                 // Add to scene
                 scene.add(newCharacter);
                 
-                console.log(`Character changed to ${modelName}!`);
+                // console.log(`Character changed to ${modelName}!`);
             },
             undefined,
             function(error) {
-                console.error(`Error loading ${modelName} model:`, error);
+                // console.error(`Error loading ${modelName} model:`, error);
             }
 );
     }
