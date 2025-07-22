@@ -638,7 +638,7 @@ function showNextMember(collectedCount) {
             
             // Add subtle indication that they're not clickable yet
             if (!characterModels.allCollected) {
-                memberToShow.style.opacity = '0.7';
+                memberToShow.style.opacity = '0.5';
                 memberToShow.style.cursor = 'not-allowed';
             }
             
