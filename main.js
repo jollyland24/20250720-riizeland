@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 const scene = new THREE.Scene();
 const raycaster = new THREE.Raycaster();
@@ -19,11 +22,11 @@ const fragmentShader = `
   varying vec2 vUv;
   
   vec3 getGradientColor(float y) {
-    vec3 darkBlue = vec3(0.043, 0.078, 0.149);     // Top - Dark navy #0B1426
-    vec3 purpleBlue = vec3(0.153, 0.204, 0.376);   // Upper mid - Purple-blue #274960
+    vec3 darkBlue = vec3(0.043, 0.078, 0.149);     // Top - Dark navyrgba(11, 20, 38, 0.39)
+    vec3 purpleBlue = vec3(0.153, 0.204, 0.376);   // Upper mid - Purple-bluergba(39, 73, 96, 0.39)
     vec3 skyPurple = vec3(0.404, 0.549, 0.804);    // Middle - Sky blue-purple (hue 212) #678CCD
     vec3 lightSkyBlue = vec3(0.529, 0.729, 0.922); // Lower mid - Light sky blue #87BAEB
-    vec3 paleBlue = vec3(0.678, 0.847, 0.949);     // Above horizon - Pale sky blue #ADD8F2
+    vec3 paleBlue = vec3(0.678, 0.847, 0.949);     // Above horizon - Pale sky bluergb(229, 173, 242)
     vec3 nearWhite = vec3(0.95, 0.97, 1.0);        // Bottom - Nearly white blue
     
     if (y > 0.75) {
@@ -68,9 +71,10 @@ scene.add(backgroundPlane);
 // Remove the solid background
 scene.background = null;
 
+// Add exponential fog for atmospheric effect
 scene.fog = new THREE.FogExp2(0xEAD7FF, 0.001);
 
-const canvas = document.getElementById("experience-canvas")
+const canvas = document.getElementById("experience-canvas");
 const sizes = {
     width: window.innerWidth,
     height: window.innerHeight,
@@ -118,8 +122,72 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.enabled = true; 
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 2;
+renderer.toneMappingExposure = 1;
 
+// Custom retro shader for VHS/80s effect
+const retroShader = {
+  uniforms: {
+    'tDiffuse': { value: null },
+    'time': { value: 0 },
+    'resolution': { value: new THREE.Vector2(sizes.width, sizes.height) },
+    'scanlineIntensity': { value: 0.05 },
+    'grainIntensity': { value: 0.05 },
+    'vignetteIntensity': { value: 0.01 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float time;
+    uniform vec2 resolution;
+    uniform float scanlineIntensity;
+    uniform float grainIntensity;
+    uniform float vignetteIntensity;
+    varying vec2 vUv;
+    
+    // Random function for grain
+    float random(vec2 co) {
+      return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+    
+    void main() {
+      vec4 color = texture2D(tDiffuse, vUv);
+      
+      // VHS Scanlines
+      float scanline = sin(vUv.y * resolution.y * 1.5) * scanlineIntensity;
+      color.rgb -= vec3(scanline);
+      
+      // Film grain
+      float grain = (random(vUv + time * 0.5) - 0.5) * grainIntensity;
+      grain += (random(vUv * 2.0 + time) - 0.5) * grainIntensity * 0.5; // Add finer grain
+      color.rgb += vec3(grain);
+      
+      // Subtle chromatic aberration
+      float aberration = 0.002;
+      color.r = texture2D(tDiffuse, vUv + vec2(aberration, 0.0)).r;
+      color.b = texture2D(tDiffuse, vUv - vec2(aberration, 0.0)).b;
+    
+      
+      // Retro color grading (boost magentas/cyans)
+      color.r = pow(color.r, 0.9);
+      color.g = pow(color.g, 0.9);
+      color.b = pow(color.b, 0.3);
+      
+      float luminance = dot(color.rgb, vec3(0.3, 0.5, 0.2));
+      vec3 grayscale = vec3(luminance);
+      color.rgb = mix(color.rgb, grayscale, 0.4); 
+      
+      color.rgb *= 1.3;
+
+      gl_FragColor = color;
+    }
+  `
+};
 
 const modalContent = {
   "tape":{
@@ -129,7 +197,7 @@ const modalContent = {
   }
 }
 
-const modal = document.querySelector(".modal")
+const modal = document.querySelector(".modal");
 const modalTitle = document.querySelector(".modal-title");
 const modalProjectDescription = document.querySelector(".modal-project-description"); 
 const modalExitButton = document.querySelector(".modal-button"); 
@@ -243,7 +311,7 @@ loader.load( './export.glb', function ( glb ) {
     }
     if(child.name === "Plane"){
         // change the color of the riize logo
-        child.material.color = new THREE.Color().setHex(0x79B4F8);
+        child.material.color = new THREE.Color().setHex(0xA7C5E6);
     }
     if(child.name === "Plane_1"){
         // change the color of the riize logo
@@ -256,7 +324,7 @@ loader.load( './export.glb', function ( glb ) {
    console.error( 'GLTF loading error:', error );
 } );
 
-const sun = new THREE.DirectionalLight( 0xFFD7F0);
+const sun = new THREE.DirectionalLight( 0xffffff);
 sun.castShadow = true;
 sun.position.set(-50, 50, 0);
 sun.shadow.mapSize.width = 4096;
@@ -274,9 +342,8 @@ const shadowHelper = new THREE.CameraHelper( sun.shadow.camera );
 const helper = new THREE.DirectionalLightHelper( sun, 10 );
 // scene.add( helper ); // Commented out to hide directional light helper lines
 
-const light = new THREE.AmbientLight( 0xFDD7FB, 3); 
+const light = new THREE.AmbientLight( 0xffffff, 3); 
 scene.add( light );
-
 
 const aspect = sizes.width / sizes.height;
 
@@ -297,9 +364,18 @@ camera.position.z = 82;
 camera.zoom = 0.6;  // or try 0.8 for less zoom out, 0.6 for more
 camera.updateProjectionMatrix();
 
+// Create post-processing composer - AFTER renderer and camera are created
+const composer = new EffectComposer(renderer);
+
+// Add the basic render pass
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const retroPass = new ShaderPass(retroShader);
+composer.addPass(retroPass);
+
 const controls = new OrbitControls( camera, canvas );
 controls.update();
-
 
 function onResize(){
     sizes.width = window.innerWidth;
@@ -312,8 +388,14 @@ function onResize(){
     camera.updateProjectionMatrix();
     console.log('resizing')
     renderer.setSize(sizes.width, sizes.height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-};
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    
+    // Update composer size
+    composer.setSize(sizes.width, sizes.height);
+    
+    // Update shader resolution
+    retroPass.uniforms.resolution.value.set(sizes.width, sizes.height);
+}
 
 function onClick () {
     console.log(intersectObject);
@@ -321,7 +403,6 @@ function onClick () {
         showModal(intersectObject);
     }
 }
-
 
 function onPointerMove( event ) {
 	pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
@@ -569,12 +650,10 @@ function onKeyDown(event) {
     moveCharacter(targetPosition, targetRotation);
 }
 
-
 window.addEventListener("resize", onResize);
 window.addEventListener("click", onClick);
 window.addEventListener('pointermove', onPointerMove); 
 window.addEventListener("keydown", onKeyDown)
-
 
 function animate() {
   raycaster.setFromCamera( pointer, camera );
@@ -591,9 +670,6 @@ function animate() {
   if (intersects.length > 0) {
     document.body.style.cursor = "pointer";
     intersectObject = intersects[0].object.parent.name;
-    
-    // Make the hovered object red
-    // intersects[0].object.material.color.set(0xff0000);
   } else {
     document.body.style.cursor = "default";
     intersectObject = "";
@@ -601,13 +677,19 @@ function animate() {
 
   // Update animations and bounding boxes
   updateStars();
-  updateTape(); // Add tape spinning animation
+  updateTape();
   updateBoundingBoxes();
+  
+  // Update shader time uniform for animated grain
+  const time = Date.now() * 0.001;
+  retroPass.uniforms.time.value = time;
   
   // Check for collisions using bounding boxes
   checkStarCollisionsBoundingBox();
   checkTapeCollision();
 
-  renderer.render( scene, camera );
-};
+  // Use composer instead of direct renderer for post-processing
+  composer.render();
+}
+
 renderer.setAnimationLoop( animate );
