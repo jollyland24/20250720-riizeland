@@ -6,7 +6,69 @@ const scene = new THREE.Scene();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
-scene.background = new THREE.Color(0xC2A1BE); // Sky blue - change the hex code to any color you want
+// Create a large plane that covers the background
+const vertexShader = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = vec4(position, 1.0);
+  }
+`;
+
+const fragmentShader = `
+  varying vec2 vUv;
+  
+  vec3 getGradientColor(float y) {
+    vec3 darkBlue = vec3(0.043, 0.078, 0.149);     // Top - Dark navy #0B1426
+    vec3 purpleBlue = vec3(0.153, 0.204, 0.376);   // Upper mid - Purple-blue #274960
+    vec3 skyPurple = vec3(0.404, 0.549, 0.804);    // Middle - Sky blue-purple (hue 212) #678CCD
+    vec3 lightSkyBlue = vec3(0.529, 0.729, 0.922); // Lower mid - Light sky blue #87BAEB
+    vec3 paleBlue = vec3(0.678, 0.847, 0.949);     // Above horizon - Pale sky blue #ADD8F2
+    vec3 nearWhite = vec3(0.95, 0.97, 1.0);        // Bottom - Nearly white blue
+    
+    if (y > 0.75) {
+      // Top section: dark blue to purple-blue
+      float factor = (y - 0.75) * 4.0;
+      return mix(purpleBlue, darkBlue, factor);
+    } else if (y > 0.5) {
+      // Upper middle: purple-blue to sky-purple
+      float factor = (y - 0.5) * 4.0;
+      return mix(skyPurple, purpleBlue, factor);
+    } else if (y > 0.3) {
+      // Lower middle: sky-purple to light sky blue
+      float factor = (y - 0.3) * 5.0;
+      return mix(lightSkyBlue, skyPurple, factor);
+    } else if (y > 0.1) {
+      // Above horizon: light sky blue to pale blue
+      float factor = (y - 0.1) * 5.0;
+      return mix(paleBlue, lightSkyBlue, factor);
+    } else {
+      // Bottom: pale blue to nearly white
+      float factor = y * 10.0;
+      return mix(nearWhite, paleBlue, factor);
+    }
+  }
+  
+  void main() {
+    vec3 color = getGradientColor(vUv.y);
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+const geometry = new THREE.PlaneGeometry(2, 2);
+const material = new THREE.ShaderMaterial({
+  vertexShader,
+  fragmentShader
+});
+
+const backgroundPlane = new THREE.Mesh(geometry, material);
+backgroundPlane.renderOrder = -1; // Render behind everything
+scene.add(backgroundPlane);
+
+// Remove the solid background
+scene.background = null;
+
+scene.fog = new THREE.FogExp2(0xEAD7FF, 0.001);
 
 const canvas = document.getElementById("experience-canvas")
 const sizes = {
@@ -56,7 +118,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.enabled = true; 
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.5
+renderer.toneMappingExposure = 2;
 
 
 const modalContent = {
@@ -177,6 +239,15 @@ loader.load( './export.glb', function ( glb ) {
           boundingBoxes.characterHelper = new THREE.Box3Helper(boundingBoxes.character, 0xff0000);
           scene.add(boundingBoxes.characterHelper);
         }
+    
+    }
+    if(child.name === "Plane"){
+        // change the color of the riize logo
+        child.material.color = new THREE.Color().setHex(0x79B4F8);
+    }
+    if(child.name === "Plane_1"){
+        // change the color of the riize logo
+        child.material.color = new THREE.Color().setHex(0xD7F1FE);
     }
   })
   scene.add( glb.scene );
@@ -185,7 +256,7 @@ loader.load( './export.glb', function ( glb ) {
    console.error( 'GLTF loading error:', error );
 } );
 
-const sun = new THREE.DirectionalLight( 0xFFFFFF);
+const sun = new THREE.DirectionalLight( 0xFFD7F0);
 sun.castShadow = true;
 sun.position.set(-50, 50, 0);
 sun.shadow.mapSize.width = 4096;
@@ -200,10 +271,10 @@ scene.add( sun );
 const shadowHelper = new THREE.CameraHelper( sun.shadow.camera );
 // scene.add( shadowHelper ); // Commented out to hide shadow camera lines
 
-const helper = new THREE.DirectionalLightHelper( sun, 5 );
+const helper = new THREE.DirectionalLightHelper( sun, 10 );
 // scene.add( helper ); // Commented out to hide directional light helper lines
 
-const light = new THREE.AmbientLight( 0xFFE2FD, 2); 
+const light = new THREE.AmbientLight( 0xFDD7FB, 3); 
 scene.add( light );
 
 
