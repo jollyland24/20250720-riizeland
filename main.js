@@ -22,8 +22,8 @@ const fragmentShader = `
   varying vec2 vUv;
   
   vec3 getGradientColor(float y) {
-    vec3 darkBlue = vec3(0.043, 0.078, 0.149);     // Top - Dark navyrgba(11, 20, 38, 0.39)
-    vec3 purpleBlue = vec3(0.153, 0.204, 0.376);   // Upper mid - Purple-bluergba(39, 73, 96, 0.39)
+    vec3 darkBlue = vec3(0.36, 0.20, 0.28);     // Top - Dark navyrgba(11, 20, 38, 0.39)
+    vec3 purpleBlue = vec3(0.41, 0.37, 0.63);   // Upper mid - Purple-bluergba(39, 73, 96, 0.39)
     vec3 skyPurple = vec3(0.404, 0.549, 0.804);    // Middle - Sky blue-purple (hue 212) #678CCD
     vec3 lightSkyBlue = vec3(0.529, 0.729, 0.922); // Lower mid - Light sky blue #87BAEB
     vec3 paleBlue = vec3(0.678, 0.847, 0.949);     // Above horizon - Pale sky bluergb(229, 173, 242)
@@ -180,9 +180,9 @@ const retroShader = {
       
       float luminance = dot(color.rgb, vec3(0.3, 0.5, 0.2));
       vec3 grayscale = vec3(luminance);
-      color.rgb = mix(color.rgb, grayscale, 0.4); 
+      color.rgb = mix(color.rgb, grayscale, 0.45); 
       
-      color.rgb *= 1.3;
+      color.rgb *= 1.25;
 
       gl_FragColor = color;
     }
