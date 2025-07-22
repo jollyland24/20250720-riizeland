@@ -9,6 +9,9 @@ const scene = new THREE.Scene();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
+
+
+
 // Create a large plane that covers the background
 const vertexShader = `
   varying vec2 vUv;
@@ -22,11 +25,11 @@ const fragmentShader = `
   varying vec2 vUv;
   
   vec3 getGradientColor(float y) {
-    vec3 darkBlue = vec3(0.678, 0.847, 0.949);     // Top - Dark navyrgba(11, 20, 38, 0.39)
-    vec3 purpleBlue = vec3(0.529, 0.729, 0.922);   // Upper mid - Purple-bluergba(39, 73, 96, 0.39)
-    vec3 skyPurple = vec3(0.404, 0.549, 0.804);    // Middle - Sky blue-purple (hue 212) #678CCD
-    vec3 lightSkyBlue = vec3(0.529, 0.729, 0.922); // Lower mid - Light sky blue #87BAEB
-    vec3 paleBlue = vec3(0.678, 0.847, 0.949);     // Above horizon - Pale sky bluergb(229, 173, 242)
+    vec3 darkBlue = vec3(0.12, 0.33, 0.39);     // Top - Dark navyrgba(11, 20, 38, 0.39)
+    vec3 purpleBlue = vec3(0.37, 0.61, 0.68);   // Upper mid - Purple-bluergba(39, 73, 96, 0.39)
+    vec3 skyPurple = vec3(0.47, 0.61, 0.68);    // Middle - Sky blue-purple (hue 212) #678CCD
+    vec3 lightSkyBlue = vec3(0.88, 0.70, 0.28); // Lower mid - Light sky blue #87BAEB
+    vec3 paleBlue = vec3(0.98, 0.82, 0.43);     // Above horizon - Pale sky bluergb(229, 173, 242)
     vec3 nearWhite = vec3(0.95, 0.97, 1.0);        // Bottom - Nearly white blue
     
     if (y > 0.75) {
@@ -311,12 +314,15 @@ loader.load( './export.glb', function ( glb ) {
     }
     if(child.name === "Plane"){
         // change the color of the riize logo
-        child.material.color = new THREE.Color().setHex(0xA7C5E6);
+        child.material.color = new THREE.Color().setHex(0xf0be4b);
     }
     if(child.name === "Plane_1"){
         // change the color of the riize logo
-        child.material.color = new THREE.Color().setHex(0xD7F1FE);
+        child.material.color = new THREE.Color().setHex(0xe0b246);
     }
+    if(child.name.toLowerCase().startsWith("star")){
+    child.material.color = new THREE.Color().setHex(0xf7f027);
+}
   })
   scene.add( glb.scene );
   console.log('GLTF loaded successfully');
@@ -561,6 +567,9 @@ function collectStar(starObject) {
     
     stars.collected.add(starObject.name);
     console.log(`Collected ${starObject.name}!`);
+
+    showNextMember(stars.collected.size);
+
     
     // Hide the helper when star is collected
     if (starObject.helper) {
@@ -596,6 +605,37 @@ function collectStar(starObject) {
         // Fallback without GSAP - immediate disappear
         starObject.mesh.visible = false;
     }
+}
+
+function showNextMember(collectedCount) {
+    // Show members progressively (member0 is already visible)
+    const memberElements = [
+        document.querySelector('.member1'),
+        document.querySelector('.member2'),
+        document.querySelector('.member3'),
+        document.querySelector('.member4'),
+        document.querySelector('.member5')
+    ];
+    
+    // Show the next member (collectedCount - 1 because we start from 0)
+    if (collectedCount > 0 && collectedCount <= memberElements.length) {
+        const memberToShow = memberElements[collectedCount - 1];
+        if (memberToShow) {
+            memberToShow.style.display = 'block';
+            
+            // Optional: Add animation when member appears
+            if (typeof gsap !== 'undefined') {
+                gsap.from(memberToShow, {
+                    scale: 0,
+                    duration: 0.5,
+                    ease: "back.out(1.7)"
+                });
+            }
+        }
+    }
+    
+    // Optional: Log progress
+    console.log(`Members visible: ${Math.min(collectedCount + 1, 6)}/6`);
 }
 
 function updateStars() {
@@ -654,6 +694,8 @@ window.addEventListener("resize", onResize);
 window.addEventListener("click", onClick);
 window.addEventListener('pointermove', onPointerMove); 
 window.addEventListener("keydown", onKeyDown)
+
+
 
 function animate() {
   raycaster.setFromCamera( pointer, camera );
