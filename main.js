@@ -8,6 +8,12 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 const scene = new THREE.Scene();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
+const bounceSound = new Audio('./sound_tape.wav');
+bounceSound.preload = 'auto';
+const collectSound = new Audio('./sound_star.wav')
+collectSound.preload = 'auto';
+const changeSound = new Audio('./sound_change.mp3')
+changeSound.preload = 'auto';
 
 const characterModels = {
     totalStars: 5, // Total number of stars to collect
@@ -171,36 +177,35 @@ const retroShader = {
     }
     
     void main() {
-      vec4 color = texture2D(tDiffuse, vUv);
-      
-      // VHS Scanlines
-      float scanline = sin(vUv.y * resolution.y * 1.5) * scanlineIntensity;
-      color.rgb -= vec3(scanline);
-      
-      // Film grain
-      float grain = (random(vUv + time * 0.5) - 0.5) * grainIntensity;
-      grain += (random(vUv * 2.0 + time) - 0.5) * grainIntensity * 0.5; // Add finer grain
-      color.rgb += vec3(grain);
-      
-      // Subtle chromatic aberration
-      float aberration = 0.001;
-      color.r = texture2D(tDiffuse, vUv + vec2(aberration, 0.0)).r;
-      color.b = texture2D(tDiffuse, vUv - vec2(aberration, 0.0)).b;
+    vec4 color = texture2D(tDiffuse, vUv);
     
-      
-      // Retro color grading (boost magentas/cyans)
-      color.r = pow(color.r, 0.9);
-      color.g = pow(color.g, 0.9);
-      color.b = pow(color.b, 0.3);
-      
-      float luminance = dot(color.rgb, vec3(0.3, 0.5, 0.2));
-      vec3 grayscale = vec3(luminance);
-      color.rgb = mix(color.rgb, grayscale, 0.45); 
-      
-      color.rgb *= 1.25;
-
-      gl_FragColor = color;
-    }
+    // VHS Scanlines
+    float scanline = sin(vUv.y * resolution.y * 1.5) * scanlineIntensity;
+    color.rgb -= vec3(scanline);
+    
+    // Film grain
+    float grain = (random(vUv + time * 0.5) - 0.5) * grainIntensity;
+    grain += (random(vUv * 2.0 + time) - 0.5) * grainIntensity * 0.5; // Add finer grain
+    color.rgb += vec3(grain);
+    
+    // Subtle chromatic aberration
+    float aberration = 0.001;
+    color.r = texture2D(tDiffuse, vUv + vec2(aberration, 0.0)).r;
+    color.b = texture2D(tDiffuse, vUv - vec2(aberration, 0.0)).b;
+    
+    // Retro color grading (subtle red reduction)
+    color.r = pow(color.r, 0.95); // Very slight red reduction from 0.9
+    color.g = pow(color.g, 0.9);
+    color.b = pow(color.b, 0.5);  // Slight blue boost reduction from 0.3
+    
+    float luminance = dot(color.rgb, vec3(0.3, 0.5, 0.2));
+    vec3 grayscale = vec3(luminance);
+    color.rgb = mix(color.rgb, grayscale, 0.45);
+    
+    color.rgb *= 1.25;
+    
+    gl_FragColor = color;
+}
   `
 };
 
@@ -329,14 +334,15 @@ loader.load( './export.glb', function ( glb ) {
 
     if(child.name === "Plane"){
         // change the color of the riize logo
-        child.material.color = new THREE.Color().setHex(0xf0be4b);
+        child.material.color = new THREE.Color().setHex(0xFFBA66);
     }
     if(child.name === "Plane_1"){
         // change the color of the riize logo
-        child.material.color = new THREE.Color().setHex(0xe0b246);
+        child.material.color = new THREE.Color().setHex(0xFBA339);
     }
     if(child.name.toLowerCase().startsWith("star")){
     child.material.color = new THREE.Color().setHex(0xf7f027);
+    
 }
   })
   scene.add( glb.scene );
@@ -360,7 +366,7 @@ scene.add( sun );
 const shadowHelper = new THREE.CameraHelper( sun.shadow.camera );
 // scene.add( shadowHelper ); // Commented out to hide shadow camera lines
 
-const helper = new THREE.DirectionalLightHelper( sun, 10 );
+const helper = new THREE.DirectionalLightHelper( sun, 9 );
 // scene.add( helper ); // Commented out to hide directional light helper lines
 
 const light = new THREE.AmbientLight( 0xffffff, 3); 
@@ -396,6 +402,21 @@ const retroPass = new ShaderPass(retroShader);
 composer.addPass(retroPass);
 
 const controls = new OrbitControls( camera, canvas );
+controls.enablePan = false;        // No panning
+controls.enableZoom = true;        // Keep zoom
+controls.enableRotate = true;      // Enable rotation
+controls.enableDamping = true;     // Smooth movement
+controls.dampingFactor = 0.05;     // How smooth
+
+controls.minAzimuthAngle = -Math.PI / 6;  // -30 degrees left
+controls.maxAzimuthAngle = Math.PI / 6;   // +30 degrees right
+controls.minPolarAngle = Math.PI / 3;     // Don't go too high
+controls.maxPolarAngle = Math.PI / 2;     // Don't go too low
+
+controls.minZoom = 0.5;   // Maximum zoom out (smaller = more zoomed out)
+controls.maxZoom = 1.5;   // Maximum zoom in (larger = more zoomed in)
+
+
 controls.update();
 
 function onResize(){
@@ -517,6 +538,11 @@ function bounceTape() {
     if (!tape.instance || tape.isAnimating) return;
     
     tape.isAnimating = true;
+
+    bounceSound.currentTime = 0;
+    bounceSound.play().catch(error => {
+        console.log('Audio playback failed:', error);
+    });
     
     // Check if GSAP is available for animation
     if (typeof gsap !== 'undefined') {
@@ -586,6 +612,11 @@ function collectStar(starObject) {
     showNextMember(stars.collected.size);
 
     
+    collectSound.currentTime = 0;
+    collectSound.play().catch(error => {
+        console.log('Audio playback failed:', error);
+    });
+    
     // Hide the helper when star is collected
     if (starObject.helper) {
         starObject.helper.visible = false;
@@ -638,7 +669,7 @@ function showNextMember(collectedCount) {
             
             // Add subtle indication that they're not clickable yet
             if (!characterModels.allCollected) {
-                memberToShow.style.opacity = '0.5';
+                memberToShow.style.opacity = '0.3';
                 memberToShow.style.cursor = 'not-allowed';
             }
             
@@ -663,14 +694,38 @@ function checkAllStarsCollected() {
     const wasAllCollected = characterModels.allCollected;
     characterModels.allCollected = collectedCount >= characterModels.totalStars;
     
-    // If just completed collection, enable member clicking
+    // If just completed collection, enable member clicking AND zoom camera
     if (characterModels.allCollected && !wasAllCollected) {
+        
+        
+        // Add camera zoom effect
+        if (typeof gsap !== 'undefined') {
+            // Smooth zoom in using GSAP
+            gsap.to(camera, {
+                zoom: 1.0, // Increase from 0.6 to 0.8 for zoom in effect
+                duration: 2, // 2 second duration
+                ease: "power2.inOut",
+                onUpdate: () => {
+                    camera.updateProjectionMatrix();
+                },
+                onComplete: () => {
+                    console.log("Camera zoom completed!");
+                }
+            });
+        } else {
+            // Fallback without GSAP - immediate zoom
+            camera.zoom = 0.8;
+            camera.updateProjectionMatrix();
+        }
+
         enableMemberClicking();
-        // console.log("All stars collected! You can now click on members to change character!");
+
+        console.log("All stars collected! Camera zooming in and members are now clickable!");
     }
     
     return characterModels.allCollected;
 }
+
 
 function enableMemberClicking() {
     const memberElements = document.querySelectorAll('[class^="member"]');
@@ -701,6 +756,7 @@ function enableMemberClicking() {
         });
     });
 }
+
 
 function changeCharacterModel(modelName) {
     if (!characterModels.allCollected) {
@@ -733,6 +789,10 @@ function changeCharacterModel(modelName) {
     // Special case for simplehead - it's already in the main scene
     if (modelName === "simplehead") {
         // Find simplehead in the already loaded export.glb and make it visible
+        changeSound.currentTime = 0;
+        changeSound.play().catch(error => {
+            console.log('Audio playback failed:', error);
+        });
         scene.traverse(child => {
             if (child.name === "simplehead") {
                 character.instance = child;
@@ -746,7 +806,12 @@ function changeCharacterModel(modelName) {
         });
     } else {
         // Load external model file
+        changeSound.currentTime = 0;
+        changeSound.play().catch(error => {
+            console.log('Audio playback failed:', error);
+        });
         const loader = new GLTFLoader();
+        
         loader.load(
             characterModels.availableModels[modelName],
             function(glb) {

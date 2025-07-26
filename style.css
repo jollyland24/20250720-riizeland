@@ -109,3 +109,20 @@
         transform: translateY(-10px);
     }
 }
+
+
+.control {
+    z-index: 1111;
+    position: absolute;
+    bottom: 2rem;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+}
+.perspective {
+    color: rgb(255, 255, 255);
+    background-color: rgb(247, 25, 150);
+    border: none;
+    padding: 1rem;
+    font-size: 2rem;
+}
