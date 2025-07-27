@@ -61,7 +61,7 @@
     left: 50%;
     transform: translateX(-50%) !important; 
     width: 40%;
-    height: 4rem;
+    height: 5rem;
     background-color: rgba(143, 173, 255, 0);
     border-bottom: 1px solid rgba(255, 255, 255 ,0);
     display: flex;
@@ -73,8 +73,8 @@
 }
 
 .member0, .member1, .member2, .member3, .member4, .member5 {
-    width: 3.3rem;
-    height: 3.3rem;
+    width: 3.8rem;
+    height: 3.8rem;
     overflow: hidden;
     cursor: pointer;
 }
@@ -131,4 +131,144 @@
     border-radius: 2rem;
     border: 0px;
     padding: 1rem;
+}
+
+
+
+/* Camera Modal overlay */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 2000; /* Higher than your existing z-index values */
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 2rem; /* Matching your existing border-radius style */
+    padding: 2rem;
+    max-width: 600px;
+    max-height: 80vh;
+    width: 90%;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    color: #333;
+}
+
+.close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    color: #666;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.video-container {
+    position: relative;
+    display: inline-block;
+    max-width: 800px;
+    width: 100%;
+    overflow: hidden; /* Prevent landmarks from showing outside */
+}
+
+#hand-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#webcam-video {
+    width: 100%;
+    max-width: 800px;
+    height: auto;
+    border-radius: 1rem;
+    background-color: #000;
+    margin: 1rem 0;
+    transform: scaleX(-1);
+    display: block;
+}
+
+.status-message {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 1rem;
+    font-size: 1rem;
+    font-family: "Doto", sans-serif;
+}
+
+.status-loading {
+    background-color: rgba(233, 242, 253, 0.8);
+    color: #1976d2;
+}
+
+.status-error {
+    background-color: rgba(255, 235, 238, 0.8);
+    color: #c62828;
+}
+
+.status-success {
+    background-color: rgba(232, 245, 232, 0.8);
+    color: #2e7d32;
+}
+
+.control-buttons {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.control-btn {
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 2rem; /* Matching your button style */
+    cursor: pointer;
+    font-size: 1rem;
+    font-family: "Doto", sans-serif;
+    transition: background-color 0.2s;
+}
+
+.control-btn.primary {
+    background-color: #1976d2;
+    color: white;
+}
+
+.control-btn.primary:hover {
+    background-color: #1565c0;
+}
+
+.control-btn.secondary {
+    background-color: rgb(243, 244, 248); /* Matching your gesture-activate button */
+    color: #333;
+}
+
+.control-btn.secondary:hover {
+    background-color: #e0e0e0;
 }

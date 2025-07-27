@@ -4,6 +4,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { WebcamModal } from './webcam-modal.js';
+
+let webcamModal = null;
 
 const scene = new THREE.Scene();
 const raycaster = new THREE.Raycaster();
@@ -14,6 +17,7 @@ const collectSound = new Audio('./sound_star.wav')
 collectSound.preload = 'auto';
 const changeSound = new Audio('./sound_change.mp3')
 changeSound.preload = 'auto';
+
 
 const characterModels = {
     totalStars: 5, // Total number of stars to collect
@@ -210,7 +214,6 @@ const retroShader = {
 };
 
 
-
 let intersectObject = "";
 const intersectObjects = [];
 const intersectObjectsNames = [
@@ -379,8 +382,27 @@ controls.maxPolarAngle = Math.PI / 2;     // Don't go too low
 controls.minZoom = 0.5;   // Maximum zoom out (smaller = more zoomed out)
 controls.maxZoom = 1.5;   // Maximum zoom in (larger = more zoomed in)
 
-
 controls.update();
+
+
+// Wait for DOM to be fully loaded before initializing webcam
+document.addEventListener('DOMContentLoaded', () => {
+    webcamModal = new WebcamModal();
+    window.webcamModal = webcamModal;
+    console.log('WebcamModal initialized');
+});
+
+// Add missing showModal function
+function showModal(objectName) {
+    console.log(`Clicked on: ${objectName}`);
+    // You can add specific behavior for different objects here
+    if (objectName === "tape") {
+        console.log("Tape clicked!");
+        // Maybe open webcam modal?
+        // webcamModal?.openModal();
+    }
+}
+
 
 function onResize(){
     sizes.width = window.innerWidth;
