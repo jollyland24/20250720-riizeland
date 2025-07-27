@@ -209,44 +209,7 @@ const retroShader = {
   `
 };
 
-const modalContent = {
-  "tape":{
-    title: "title",
-    content: "this is content",
-    link: "https://www.youtube.com/@RIIZE_official",
-  }
-}
 
-const modal = document.querySelector(".modal");
-const modalTitle = document.querySelector(".modal-title");
-const modalProjectDescription = document.querySelector(".modal-project-description"); 
-const modalExitButton = document.querySelector(".modal-button"); 
-const modalVisit = document.querySelector(".modal-visit-button");
-
-if (modalExitButton) {
-    modalExitButton.addEventListener("click", hideModal);
-}
-
-function showModal(id) {
-  const content = modalContent[id];
-  if(content && modal){
-    modalTitle.textContent = content.title;
-    modalProjectDescription.textContent = content.content;
-    if(content.link && modalVisit){
-        modalVisit.href = content.link;
-        modalVisit.classList.remove('hidden');
-    } else if(modalVisit) {
-        modalVisit.classList.add('hidden');
-    }
-    modal.classList.toggle("hidden");
-  }
-}
-
-function hideModal (){
-    if(modal) {
-        modal.classList.toggle("hidden");
-    }
-}
 
 let intersectObject = "";
 const intersectObjects = [];
@@ -726,7 +689,6 @@ function checkAllStarsCollected() {
     return characterModels.allCollected;
 }
 
-
 function enableMemberClicking() {
     const memberElements = document.querySelectorAll('[class^="member"]');
     const membersContainer = document.querySelector('.members');
@@ -919,7 +881,7 @@ function animate() {
   const intersects = raycaster.intersectObjects( intersectObjects );
     
   if (intersects.length > 0) {
-    document.body.style.cursor = "pointer";
+    document.body.style.cursor = "default";
     intersectObject = intersects[0].object.parent.name;
   } else {
     document.body.style.cursor = "default";
