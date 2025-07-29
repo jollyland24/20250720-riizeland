@@ -150,28 +150,25 @@
 }
 
 .modal-content {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
+    background: #000; /* Changed to black for better camera contrast */
     border-radius: 2rem; /* Matching your existing border-radius style */
-    padding: 2rem;
-    max-width: 600px;
-    max-height: 80vh;
-    width: 90%;
+    width: 90vw;
+    height: 60rem;
     position: relative;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    overflow: hidden; /* Prevent content from overflowing rounded corners */
     text-align: center;
-    color: #333;
+    color: white; /* Changed to white for overlay text */
 }
 
 .close-btn {
     position: absolute;
     top: 1rem;
     right: 1.5rem;
-    background: none;
+    background: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
     border: none;
     font-size: 2rem;
     cursor: pointer;
-    color: #666;
+    color: white; /* Changed to white */
     width: 3rem;
     height: 3rem;
     border-radius: 50%;
@@ -179,17 +176,19 @@
     align-items: center;
     justify-content: center;
     transition: background-color 0.2s;
+    z-index: 20; /* Ensure it's above the video */
 }
 
 .close-btn:hover {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(0, 0, 0, 0.7);
 }
 
 .video-container {
-    position: relative;
-    display: inline-block;
-    max-width: 800px;
+    position: absolute; /* Changed to absolute for full coverage */
+    top: 0;
+    left: 0;
     width: 100%;
+    height: 100%;
     overflow: hidden; /* Prevent landmarks from showing outside */
 }
 
@@ -205,44 +204,56 @@
 
 #webcam-video {
     width: 100%;
-    max-width: 800px;
-    height: auto;
-    border-radius: 1rem;
+    height: 100%;
+    border-radius: 2rem; /* Match modal border radius */
     background-color: #000;
-    margin: 1rem 0;
     transform: scaleX(-1);
     display: block;
+    object-fit: cover; /* Ensure video covers entire area */
 }
 
 .status-message {
-    margin: 1rem 0;
-    padding: 1rem;
+    position: absolute; /* Changed to absolute positioning */
+    bottom: 6rem; /* Position above control buttons */
+    left: 2rem;
+    margin: 0;
+    padding: 1rem 2rem;
     border-radius: 1rem;
     font-size: 1rem;
     font-family: "Doto", sans-serif;
+    z-index: 15; /* Above video but below close button */
+    max-width: 60%;
+    display: none; /* Hidden by default */
 }
 
 .status-loading {
-    background-color: rgba(233, 242, 253, 0.8);
-    color: #1976d2;
+    background-color: rgba(30, 144, 255, 0.8);
+    color: white;
+    backdrop-filter: blur(10px);
 }
 
 .status-error {
-    background-color: rgba(255, 235, 238, 0.8);
-    color: #c62828;
+    background-color: rgba(220, 53, 69, 0.8);
+    color: white;
+    backdrop-filter: blur(10px);
 }
 
 .status-success {
-    background-color: rgba(232, 245, 232, 0.8);
-    color: #2e7d32;
+    background-color: rgba(40, 167, 69, 0.8);
+    color: white;
+    backdrop-filter: blur(10px);
 }
 
 .control-buttons {
-    margin-top: 1.5rem;
+    position: absolute; /* Changed to absolute positioning */
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
+    z-index: 15; /* Above video but below close button */
 }
 
 .control-btn {
@@ -252,23 +263,25 @@
     cursor: pointer;
     font-size: 1rem;
     font-family: "Doto", sans-serif;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px); /* Add blur effect */
 }
 
 .control-btn.primary {
-    background-color: #1976d2;
+    background-color: rgba(25, 118, 210, 0.8);
     color: white;
 }
 
 .control-btn.primary:hover {
-    background-color: #1565c0;
+    background-color: rgba(21, 101, 192, 0.9);
 }
 
 .control-btn.secondary {
-    background-color: rgb(243, 244, 248); /* Matching your gesture-activate button */
-    color: #333;
+    background-color: rgba(255, 255, 255, 0.2); /* Semi-transparent white */
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .control-btn.secondary:hover {
-    background-color: #e0e0e0;
+    background-color: rgba(255, 255, 255, 0.3);
 }
