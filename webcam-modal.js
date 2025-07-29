@@ -330,7 +330,7 @@ export class WebcamModal {
         
         // Draw all lines with nice brush effect
         this.ctx.strokeStyle = '#FF6B00';
-        this.ctx.lineWidth = 8;
+        this.ctx.lineWidth = 30;
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
         this.ctx.globalAlpha = 0.8;

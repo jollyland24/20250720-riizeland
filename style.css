@@ -223,7 +223,7 @@
     font-family: "Doto", sans-serif;
     z-index: 15; /* Above video but below close button */
     max-width: 60%;
-    display: none; /* Hidden by default */
+    display: none; 
 }
 
 .status-loading {
