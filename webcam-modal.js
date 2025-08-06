@@ -1,4 +1,4 @@
-// webcam-modal.js - Complete version with jiggling brush animation and warm orange colors
+// webcam-modal.js - Complete version with jiggling brush animation, warm orange colors, and eraser function
 export class WebcamModal {
     constructor() {
         this.modal = document.getElementById('webcam-modal');
@@ -21,6 +21,7 @@ export class WebcamModal {
         
         // Drawing variables
         this.isDrawing = false;
+        this.isErasing = false;
         this.lastDrawPoint = null;
         this.permanentLines = [];
         this.currentStrokeColor = null; // Store the picked color for current stroke
@@ -31,6 +32,9 @@ export class WebcamModal {
         this.animationTime = 0;
         this.lastJiggleUpdate = 0;
         this.lineAnimations = new Map(); // Store animation data per line
+        
+        // Eraser settings
+        this.eraserRadius = 30; // How big the eraser area is
         
         this.initMediaPipe();
         this.initEventListeners();
@@ -126,7 +130,7 @@ export class WebcamModal {
                 // Wait a bit more before starting hand detection
                 setTimeout(() => {
                     this.startHandDetection();
-                    this.updateStatus('Point index finger in ANY direction to draw. Press C to clear.', 'success');
+                    this.updateStatus('👆 Point STRAIGHT index finger to draw | 👍 Thumbs up to erase | Press C to clear all', 'success');
                     this.startBtn.classList.add('hidden');
                     this.stopBtn.classList.remove('hidden');
                 }, 200);
@@ -238,37 +242,260 @@ export class WebcamModal {
             const gesture = this.detectGesture(landmarks);
             this.currentGesture = gesture;
             
+            // Handle eraser mode first (thumbs up)
+            if (gesture === 'thumbs_up') {
+                this.handleErasing(landmarks);
+                this.drawEraserCursor(landmarks[4]); // Show eraser cursor at thumb tip
+            } 
             // Handle drawing for any pointing direction
-            this.handleDrawing(landmarks, gesture);
-            
-            // Show cursor when pointing in any direction
-            if (gesture.includes('index_pointing')) {
-                this.drawFingerCursor(landmarks[8]);
-            }
-            
-            // Update status with more encouraging feedback
-            let statusText = '';
-            if (this.isDrawing) {
-                const direction = gesture.replace('index_pointing_', '').toUpperCase();
-                statusText = `🎨 Drawing - Pointing ${direction}`;
-            } else if (gesture.includes('index_pointing')) {
-                const direction = gesture.replace('index_pointing_', '').toUpperCase();
-                statusText = `👆 Ready to draw - Pointing ${direction}`;
-            } else if (gesture.includes('index_rough')) {
-                statusText = '👆 Almost there - Point index finger more clearly';
+            else if (gesture.includes('index_pointing')) {
+                this.handleDrawing(landmarks, gesture);
+                this.drawFingerCursor(landmarks[8]); // Show drawing cursor at index finger tip
             } else {
-                statusText = 'Point index finger in any direction to draw';
+                // Stop both drawing and erasing if no gesture detected
+                this.isDrawing = false;
+                this.isErasing = false;
+                this.lastDrawPoint = null;
             }
-            this.updateStatus(statusText, 'success');
+            
+            // Update status with current mode
+            this.updateStatusForGesture(gesture);
             
             this.ctx.restore();
         } else {
-            // No hand detected - stop drawing
+            // No hand detected - stop everything
             if (this.isDrawing) {
                 this.isDrawing = false;
                 this.lastDrawPoint = null;
             }
+            if (this.isErasing) {
+                this.isErasing = false;
+            }
         }
+    }
+    
+    // New method to handle erasing
+    handleErasing(landmarks) {
+        const thumbTip = landmarks[4];
+        const eraserPoint = {
+            x: thumbTip.x * this.canvas.width,
+            y: thumbTip.y * this.canvas.height
+        };
+        
+        if (!this.isErasing) {
+            this.isErasing = true;
+            console.log('Eraser mode activated!');
+        }
+        
+        // Erase lines that intersect with the eraser area
+        this.eraseLines(eraserPoint);
+    }
+    
+    // Method to erase lines within the eraser radius
+    eraseLines(eraserPoint) {
+        const initialCount = this.permanentLines.length;
+        
+        // Filter out lines that intersect with the eraser circle
+        this.permanentLines = this.permanentLines.filter(line => {
+            const intersects = this.lineIntersectsCircle(line, eraserPoint, this.eraserRadius);
+            
+            // If line is being erased, remove its animation data too
+            if (intersects) {
+                this.lineAnimations.delete(line.id);
+            }
+            
+            return !intersects;
+        });
+        
+        const erasedCount = initialCount - this.permanentLines.length;
+        if (erasedCount > 0) {
+            console.log(`Erased ${erasedCount} line segments`);
+        }
+    }
+    
+    // Check if a line intersects with a circle (eraser area)
+    lineIntersectsCircle(line, circleCenter, circleRadius) {
+        // Calculate distance from circle center to line segment
+        const A = circleCenter.x - line.from.x;
+        const B = circleCenter.y - line.from.y;
+        const C = line.to.x - line.from.x;
+        const D = line.to.y - line.from.y;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        
+        if (lenSq === 0) {
+            // Line segment is actually a point
+            const distance = Math.sqrt(A * A + B * B);
+            return distance <= circleRadius;
+        }
+        
+        let param = dot / lenSq;
+        
+        let closestPoint;
+        if (param < 0) {
+            closestPoint = { x: line.from.x, y: line.from.y };
+        } else if (param > 1) {
+            closestPoint = { x: line.to.x, y: line.to.y };
+        } else {
+            closestPoint = {
+                x: line.from.x + param * C,
+                y: line.from.y + param * D
+            };
+        }
+        
+        const dx = circleCenter.x - closestPoint.x;
+        const dy = circleCenter.y - closestPoint.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        return distance <= circleRadius;
+    }
+    
+    // New method to draw eraser cursor
+    drawEraserCursor(thumbTip) {
+        const time = Date.now() * 0.01;
+        const x = thumbTip.x * this.canvas.width;
+        const y = thumbTip.y * this.canvas.height;
+        
+        // Outer eraser circle with pulsing effect
+        const pulse = this.eraserRadius + Math.sin(time * 0.4) * 3;
+        this.ctx.strokeStyle = '#FF6B6B'; // Red color for eraser
+        this.ctx.lineWidth = 3;
+        this.ctx.globalAlpha = 0.7;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, pulse, 0, 2 * Math.PI);
+        this.ctx.stroke();
+        
+        // Inner eraser area
+        this.ctx.fillStyle = '#FF6B6B';
+        this.ctx.globalAlpha = 0.2;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, this.eraserRadius, 0, 2 * Math.PI);
+        this.ctx.fill();
+        
+        // Animated cross pattern in the center
+        this.ctx.strokeStyle = '#FF4444';
+        this.ctx.lineWidth = 2;
+        this.ctx.globalAlpha = 0.8;
+        
+        const crossSize = 8 + Math.sin(time * 0.5) * 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - crossSize, y - crossSize);
+        this.ctx.lineTo(x + crossSize, y + crossSize);
+        this.ctx.moveTo(x + crossSize, y - crossSize);
+        this.ctx.lineTo(x - crossSize, y + crossSize);
+        this.ctx.stroke();
+        
+        // Sparkle effects around eraser
+        for (let i = 0; i < 4; i++) {
+            const sparkleAngle = time * 0.15 + i * (Math.PI / 2);
+            const sparkleRadius = this.eraserRadius + 10 + Math.sin(time * 0.6 + i) * 5;
+            const sparkleX = x + Math.cos(sparkleAngle) * sparkleRadius;
+            const sparkleY = y + Math.sin(sparkleAngle) * sparkleRadius;
+            
+            this.ctx.fillStyle = '#FFB6C1'; // Light pink for sparkles
+            this.ctx.globalAlpha = 0.6;
+            this.ctx.beginPath();
+            this.ctx.arc(sparkleX, sparkleY, 2, 0, 2 * Math.PI);
+            this.ctx.fill();
+        }
+        
+        this.ctx.globalAlpha = 1.0;
+    }
+    
+    // Enhanced status updates with detailed finger feedback
+    updateStatusForGesture(gesture) {
+        let statusText = '';
+        
+        if (gesture === 'thumbs_up') {
+            statusText = '🧹 ERASER MODE - Move thumb to erase lines';
+        } else if (this.isDrawing) {
+            const direction = gesture.replace('index_pointing_', '').toUpperCase();
+            statusText = `🎨 Drawing - Pointing ${direction} (finger straight ✓)`;
+        } else if (gesture.includes('index_pointing')) {
+            const direction = gesture.replace('index_pointing_', '').toUpperCase();
+            statusText = `👆 Ready to draw - Pointing ${direction} (finger straight ✓)`;
+        } else if (gesture === 'finger_bent') {
+            statusText = '👆 Straighten your index finger to draw';
+        } else if (gesture === 'finger_curved') {
+            statusText = '👆 Keep your index finger straight (not curved sideways)';
+        } else if (gesture === 'finger_not_extended') {
+            statusText = '👆 Extend your index finger fully to draw';
+        } else {
+            statusText = '👆 Point straight index finger to draw | 👍 Thumbs up to erase | Press C to clear all';
+        }
+        
+        const statusType = gesture === 'thumbs_up' ? 'error' : 
+                          gesture.includes('finger_') ? 'loading' : 'success';
+        this.updateStatus(statusText, statusType);
+    }
+    
+    // Strict index finger detection methods (require straight finger)
+    isIndexPointingUpStrict(landmarks, extendedFingers) {
+        if (!extendedFingers.includes('index')) return false;
+        
+        // Don't allow other fingers to be extended (except thumb is ok)
+        const otherFingers = extendedFingers.filter(f => f !== 'index' && f !== 'thumb');
+        if (otherFingers.length > 0) return false;
+        
+        const indexTip = landmarks[8];
+        const indexMcp = landmarks[5];
+        const wrist = landmarks[0];
+        
+        const isPointingUp = indexTip.y < indexMcp.y && indexTip.y < wrist.y;
+        const angle = this.getFingerAngle(landmarks[5], landmarks[8]);
+        const isVertical = Math.abs(angle + 90) < 25; // Stricter angle tolerance
+        
+        return isPointingUp && isVertical;
+    }
+    
+    isIndexPointingRightStrict(landmarks, extendedFingers) {
+        if (!extendedFingers.includes('index')) return false;
+        
+        const otherFingers = extendedFingers.filter(f => f !== 'index' && f !== 'thumb');
+        if (otherFingers.length > 0) return false;
+        
+        const indexTip = landmarks[8];
+        const indexMcp = landmarks[5];
+        
+        const isPointingRight = indexTip.x > indexMcp.x;
+        const angle = this.getFingerAngle(landmarks[5], landmarks[8]);
+        const isHorizontal = Math.abs(angle) < 25; // Stricter angle tolerance
+        
+        return isPointingRight && isHorizontal;
+    }
+    
+    isIndexPointingLeftStrict(landmarks, extendedFingers) {
+        if (!extendedFingers.includes('index')) return false;
+        
+        const otherFingers = extendedFingers.filter(f => f !== 'index' && f !== 'thumb');
+        if (otherFingers.length > 0) return false;
+        
+        const indexTip = landmarks[8];
+        const indexMcp = landmarks[5];
+        
+        const isPointingLeft = indexTip.x < indexMcp.x;
+        const angle = this.getFingerAngle(landmarks[5], landmarks[8]);
+        const isHorizontal = Math.abs(angle - 180) < 25 || Math.abs(angle + 180) < 25;
+        
+        return isPointingLeft && isHorizontal;
+    }
+    
+    isIndexPointingDownStrict(landmarks, extendedFingers) {
+        if (!extendedFingers.includes('index')) return false;
+        
+        const otherFingers = extendedFingers.filter(f => f !== 'index' && f !== 'thumb');
+        if (otherFingers.length > 0) return false;
+        
+        const indexTip = landmarks[8];
+        const indexMcp = landmarks[5];
+        const wrist = landmarks[0];
+        
+        const isPointingDown = indexTip.y > indexMcp.y && indexTip.y > wrist.y;
+        const angle = this.getFingerAngle(landmarks[5], landmarks[8]);
+        const isVertical = Math.abs(angle - 90) < 25; // Stricter angle tolerance
+        
+        return isPointingDown && isVertical;
     }
     
     // Enhanced finger cursor with warm orange colors
@@ -328,16 +555,16 @@ export class WebcamModal {
             y: indexTip.y * this.canvas.height
         };
         
-        // Now draw for any index pointing gesture (more forgiving)
+        // Now draw for any index pointing gesture
         if (gesture.includes('index_pointing')) {
             if (!this.isDrawing) {
-                // Start drawing - pick color from background at finger position
+                // Start new drawing session - sample color only once at the beginning
                 this.isDrawing = true;
                 this.lastDrawPoint = currentPoint;
                 this.currentStrokeColor = this.sampleColorFromBackground(currentPoint);
-                console.log('Drawing started - index pointing detected! Color sampled:', this.currentStrokeColor);
+                console.log('New drawing session started! Color sampled:', this.currentStrokeColor);
             } else {
-                // Continue drawing
+                // Continue drawing with same color
                 if (this.lastDrawPoint) {
                     const distance = this.distance2D(currentPoint, this.lastDrawPoint);
                     
@@ -350,7 +577,7 @@ export class WebcamModal {
                             age: 0, // How long this line has existed
                             baseWidth: 30 + Math.random() * 10, // Varied line width
                             opacity: 1.0, // Full opacity - no transparency
-                            color: this.currentStrokeColor // Use the sampled color
+                            color: this.currentStrokeColor // Keep using the SAME sampled color
                         };
                         
                         this.permanentLines.push(line);
@@ -364,16 +591,21 @@ export class WebcamModal {
                         });
                         
                         this.lastDrawPoint = currentPoint;
+                        
+                        // Debug: Log that we're continuing with same color
+                        if (Math.random() < 0.01) { // Log occasionally to avoid spam
+                            console.log('Continuing stroke with consistent color:', this.currentStrokeColor);
+                        }
                     }
                 }
             }
         } else {
-            // Not pointing - stop drawing
+            // Not pointing - end current drawing session
             if (this.isDrawing) {
                 this.isDrawing = false;
                 this.lastDrawPoint = null;
-                this.currentStrokeColor = null; // Reset color
-                console.log('Drawing stopped - not pointing');
+                // Keep currentStrokeColor until next drawing session starts
+                console.log('Drawing session ended - color will be resampled on next stroke');
             }
         }
     }
@@ -510,13 +742,14 @@ export class WebcamModal {
         this.permanentLines = [];
         this.lineAnimations.clear(); // Clear animation data too
         this.isDrawing = false;
+        this.isErasing = false;
         this.lastDrawPoint = null;
-        this.currentStrokeColor = null; // Reset current stroke color
+        this.currentStrokeColor = null; // Reset current stroke color when clearing
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        console.log('🧹 Drawing cleared!');
+        console.log('🧹 Drawing cleared! Color will be resampled on next stroke.');
     }
     
-    // More forgiving gesture detection
+    // Enhanced gesture detection with strict finger straightness requirements
     detectGesture(landmarks) {
         const fingerTips = [4, 8, 12, 16, 20];
         const fingerPips = [3, 6, 10, 14, 18];
@@ -524,26 +757,181 @@ export class WebcamModal {
         
         const extendedFingers = this.getExtendedFingers(landmarks, fingerTips, fingerPips, fingerMcps);
         
-        // More forgiving index finger detection
-        if (this.isIndexPointingUpForgiving(landmarks, extendedFingers)) {
+        // Check for thumbs up gesture first (thumb extended, other fingers folded)
+        if (this.isThumbsUp(landmarks, extendedFingers)) {
+            return 'thumbs_up';
+        }
+        
+        // Check if index finger is straight and properly extended
+        const indexStraightness = this.checkIndexFingerStraightness(landmarks);
+        
+        if (!indexStraightness.isStraight) {
+            // If index is extended but not straight, give feedback
+            if (extendedFingers.includes('index')) {
+                return indexStraightness.feedback;
+            }
+            return 'not_pointing';
+        }
+        
+        // Enhanced index finger detection with straightness requirement
+        if (this.isIndexPointingUpStrict(landmarks, extendedFingers)) {
             return 'index_pointing_up';
-        } else if (this.isIndexPointingRightForgiving(landmarks, extendedFingers)) {
+        } else if (this.isIndexPointingRightStrict(landmarks, extendedFingers)) {
             return 'index_pointing_right';
-        } else if (this.isIndexPointingLeftForgiving(landmarks, extendedFingers)) {
+        } else if (this.isIndexPointingLeftStrict(landmarks, extendedFingers)) {
             return 'index_pointing_left';
-        } else if (this.isIndexPointingDownForgiving(landmarks, extendedFingers)) {
+        } else if (this.isIndexPointingDownStrict(landmarks, extendedFingers)) {
             return 'index_pointing_down';
-        } else if (this.isIndexRoughlyPointing(landmarks, extendedFingers)) {
-            return 'index_rough_pointing';
         }
         
         return 'not_pointing';
     }
     
+    // New method to check if index finger is straight
+    checkIndexFingerStraightness(landmarks) {
+        const indexTip = landmarks[8]; // Index finger tip
+        const indexDip = landmarks[7]; // Index finger DIP joint
+        const indexPip = landmarks[6]; // Index finger PIP joint
+        const indexMcp = landmarks[5]; // Index finger MCP joint
+        
+        // Calculate angles between finger segments
+        const angle1 = this.calculateAngleBetweenPoints(indexMcp, indexPip, indexDip);
+        const angle2 = this.calculateAngleBetweenPoints(indexPip, indexDip, indexTip);
+        
+        // A straight finger should have angles close to 180 degrees
+        const straightnessThreshold = 35; // Allow some flexibility (degrees)
+        const isSegment1Straight = Math.abs(180 - angle1) < straightnessThreshold;
+        const isSegment2Straight = Math.abs(180 - angle2) < straightnessThreshold;
+        
+        // Check overall finger extension
+        const fingerLength = this.distance(indexMcp, indexTip);
+        const minFingerLength = 0.08; // Minimum length for extended finger
+        const isExtended = fingerLength > minFingerLength;
+        
+        // Additional check: make sure finger joints are properly aligned
+        const overallAlignment = this.checkFingerAlignment(indexMcp, indexPip, indexDip, indexTip);
+        
+        const isStraight = isSegment1Straight && isSegment2Straight && isExtended && overallAlignment;
+        
+        // Provide specific feedback for different cases
+        let feedback = 'not_pointing';
+        if (!isExtended) {
+            feedback = 'finger_not_extended';
+        } else if (!isSegment1Straight || !isSegment2Straight) {
+            feedback = 'finger_bent';
+        } else if (!overallAlignment) {
+            feedback = 'finger_curved';
+        }
+        
+        return {
+            isStraight,
+            feedback,
+            angles: { segment1: angle1, segment2: angle2 },
+            fingerLength,
+            alignment: overallAlignment
+        };
+    }
+    
+    // Helper method to calculate angle between three points
+    calculateAngleBetweenPoints(point1, point2, point3) {
+        const vec1 = {
+            x: point1.x - point2.x,
+            y: point1.y - point2.y
+        };
+        const vec2 = {
+            x: point3.x - point2.x,
+            y: point3.y - point2.y
+        };
+        
+        const dot = vec1.x * vec2.x + vec1.y * vec2.y;
+        const mag1 = Math.sqrt(vec1.x * vec1.x + vec1.y * vec1.y);
+        const mag2 = Math.sqrt(vec2.x * vec2.x + vec2.y * vec2.y);
+        
+        if (mag1 === 0 || mag2 === 0) return 180; // Default to straight if no magnitude
+        
+        const cosAngle = dot / (mag1 * mag2);
+        const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle))); // Clamp to avoid NaN
+        
+        return angle * (180 / Math.PI);
+    }
+    
+    // Check if finger joints are properly aligned (not curved sideways)
+    checkFingerAlignment(mcp, pip, dip, tip) {
+        // Calculate the direction vector from MCP to TIP
+        const overallDirection = {
+            x: tip.x - mcp.x,
+            y: tip.y - mcp.y
+        };
+        
+        // Check if intermediate joints deviate too much from the straight line
+        const maxDeviation = 0.02; // Maximum allowed sideways deviation
+        
+        // Check PIP alignment
+        const pipProjection = this.projectPointOnLine(mcp, tip, pip);
+        const pipDeviation = this.distance(pip, pipProjection);
+        
+        // Check DIP alignment
+        const dipProjection = this.projectPointOnLine(mcp, tip, dip);
+        const dipDeviation = this.distance(dip, dipProjection);
+        
+        return pipDeviation < maxDeviation && dipDeviation < maxDeviation;
+    }
+    
+    // Project a point onto a line defined by two other points
+    projectPointOnLine(lineStart, lineEnd, point) {
+        const A = point.x - lineStart.x;
+        const B = point.y - lineStart.y;
+        const C = lineEnd.x - lineStart.x;
+        const D = lineEnd.y - lineStart.y;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        
+        if (lenSq === 0) return { x: lineStart.x, y: lineStart.y };
+        
+        const param = dot / lenSq;
+        
+        return {
+            x: lineStart.x + param * C,
+            y: lineStart.y + param * D
+        };
+    }
+    
+    // New method to detect thumbs up gesture
+    isThumbsUp(landmarks, extendedFingers) {
+        // Check if thumb is extended
+        if (!extendedFingers.includes('thumb')) {
+            return false;
+        }
+        
+        // Check that other fingers are NOT extended (folded)
+        const otherFingers = ['index', 'middle', 'ring', 'pinky'];
+        const extendedOtherFingers = otherFingers.filter(finger => extendedFingers.includes(finger));
+        
+        // Allow at most 1 other finger to be slightly extended (more forgiving)
+        if (extendedOtherFingers.length > 1) {
+            return false;
+        }
+        
+        // Check thumb direction - should be pointing generally upward
+        const thumbTip = landmarks[4];
+        const thumbMcp = landmarks[2];
+        const wrist = landmarks[0];
+        
+        // Thumb should be above its base and above wrist
+        const isThumbUp = thumbTip.y < thumbMcp.y && thumbTip.y < wrist.y;
+        
+        // Additional check: thumb should be reasonably extended
+        const thumbDistance = this.distance(thumbTip, thumbMcp);
+        const minThumbExtension = 0.04; // Minimum distance for thumb to be considered extended
+        
+        return isThumbUp && thumbDistance > minThumbExtension;
+    }
+    
     getExtendedFingers(landmarks, fingerTips, fingerPips, fingerMcps) {
         const extendedFingers = [];
         
-        // Check thumb
+        // Check thumb with improved detection
         const thumbTip = landmarks[4];
         const thumbIp = landmarks[3];
         const thumbMcp = landmarks[2];
@@ -554,24 +942,34 @@ export class WebcamModal {
         const distThumbTipToIndex = this.distance(thumbTip, indexMcp);
         const distThumbIpToIndex = this.distance(thumbIp, indexMcp);
         
-        if (distThumbTipToWrist > distThumbIpToWrist && distThumbTipToIndex > distThumbIpToIndex) {
-            const thumbDirection = Math.atan2(thumbTip.y - thumbMcp.y, thumbTip.x - thumbMcp.x);
-            const palmDirection = Math.atan2(indexMcp.y - landmarks[0].y, indexMcp.x - landmarks[0].x);
-            const angleDiff = Math.abs(thumbDirection - palmDirection);
-            
-            if (angleDiff > Math.PI / 4) {
-                extendedFingers.push('thumb');
-            }
+        // Improved thumb detection logic
+        const thumbExtended = distThumbTipToWrist > distThumbIpToWrist && 
+                             distThumbTipToIndex > distThumbIpToIndex &&
+                             this.distance(thumbTip, thumbMcp) > 0.03;
+        
+        if (thumbExtended) {
+            extendedFingers.push('thumb');
         }
         
-        // Check other fingers
+        // Check other fingers with much stricter detection
         const fingerNames = ['index', 'middle', 'ring', 'pinky'];
         for (let i = 1; i < fingerTips.length; i++) {
             const tip = landmarks[fingerTips[i]];
             const pip = landmarks[fingerPips[i]];
             const mcp = landmarks[fingerMcps[i]];
             
-            if (tip.y < pip.y && tip.y < mcp.y) {
+            // Much stricter detection - finger must be clearly extended and straight
+            const isExtended = tip.y < pip.y && tip.y < mcp.y && 
+                              this.distance(tip, mcp) > 0.06; // Increased minimum distance
+            
+            // Additional check for index finger - ensure it's really straight
+            if (i === 1 && isExtended) { // Index finger
+                const straightnessCheck = this.checkIndexFingerStraightness(landmarks);
+                if (straightnessCheck.isStraight) {
+                    extendedFingers.push(fingerNames[i-1]);
+                }
+            } else if (i !== 1 && isExtended) {
+                // For other fingers, use standard detection
                 extendedFingers.push(fingerNames[i-1]);
             }
         }
@@ -579,82 +977,7 @@ export class WebcamModal {
         return extendedFingers;
     }
     
-    // More forgiving detection methods
-    isIndexPointingUpForgiving(landmarks, extendedFingers) {
-        if (!extendedFingers.includes('index')) return false;
-        if (extendedFingers.includes('middle') && extendedFingers.includes('ring')) return false; // Allow some flexibility
-        
-        const indexTip = landmarks[8];
-        const indexMcp = landmarks[5];
-        const wrist = landmarks[0];
-        
-        const isPointingUp = indexTip.y < indexMcp.y && indexTip.y < wrist.y;
-        const angle = this.getFingerAngle(landmarks[5], landmarks[8]);
-        const isVertical = Math.abs(angle + 90) < 45; // Expanded from 25 to 45 degrees
-        
-        return isPointingUp && isVertical;
-    }
-    
-    isIndexPointingRightForgiving(landmarks, extendedFingers) {
-        if (!extendedFingers.includes('index')) return false;
-        if (extendedFingers.includes('middle') && extendedFingers.includes('ring')) return false;
-        
-        const indexTip = landmarks[8];
-        const indexMcp = landmarks[5];
-        
-        const isPointingRight = indexTip.x > indexMcp.x;
-        const angle = this.getFingerAngle(landmarks[5], landmarks[8]);
-        const isHorizontal = Math.abs(angle) < 45; // Expanded from 30 to 45 degrees
-        
-        return isPointingRight && isHorizontal;
-    }
-    
-    isIndexPointingLeftForgiving(landmarks, extendedFingers) {
-        if (!extendedFingers.includes('index')) return false;
-        if (extendedFingers.includes('middle') && extendedFingers.includes('ring')) return false;
-        
-        const indexTip = landmarks[8];
-        const indexMcp = landmarks[5];
-        
-        const isPointingLeft = indexTip.x < indexMcp.x;
-        const angle = this.getFingerAngle(landmarks[5], landmarks[8]);
-        const isHorizontal = Math.abs(angle - 180) < 45 || Math.abs(angle + 180) < 45; // Expanded range
-        
-        return isPointingLeft && isHorizontal;
-    }
-    
-    isIndexPointingDownForgiving(landmarks, extendedFingers) {
-        if (!extendedFingers.includes('index')) return false;
-        if (extendedFingers.includes('middle') && extendedFingers.includes('ring')) return false;
-        
-        const indexTip = landmarks[8];
-        const indexMcp = landmarks[5];
-        const wrist = landmarks[0];
-        
-        const isPointingDown = indexTip.y > indexMcp.y && indexTip.y > wrist.y;
-        const angle = this.getFingerAngle(landmarks[5], landmarks[8]);
-        const isVertical = Math.abs(angle - 90) < 45; // Expanded from 25 to 45 degrees
-        
-        return isPointingDown && isVertical;
-    }
-    
-    // New method for rough pointing detection
-    isIndexRoughlyPointing(landmarks, extendedFingers) {
-        if (!extendedFingers.includes('index')) return false;
-        
-        // Allow up to 2 other fingers to be extended (more forgiving)
-        const otherFingers = extendedFingers.filter(f => f !== 'index' && f !== 'thumb');
-        if (otherFingers.length > 2) return false;
-        
-        const indexTip = landmarks[8];
-        const indexMcp = landmarks[5];
-        
-        // Check if index is generally extended in any direction
-        const distance = this.distance(indexTip, indexMcp);
-        const minDistance = 0.03; // Minimum extension distance
-        
-        return distance > minDistance;
-    }
+
     
     getFingerAngle(point1, point2) {
         const dx = point2.x - point1.x;
@@ -690,8 +1013,10 @@ export class WebcamModal {
         this.permanentLines = [];
         this.lineAnimations.clear();
         this.isDrawing = false;
+        this.isErasing = false;
         this.lastDrawPoint = null;
-        this.currentStrokeColor = null; // Reset stroke color
+        this.currentStrokeColor = null; // Reset stroke color when stopping camera
+        console.log('Camera stopped - color will be resampled on next drawing session');
     }
     
     updateStatus(message, type) {
@@ -710,5 +1035,11 @@ export class WebcamModal {
     
     setJiggleSpeed(speed) {
         this.jiggleSpeed = Math.max(0.01, Math.min(0.2, speed));
+    }
+    
+    // Optional: Add method to adjust eraser size
+    setEraserRadius(radius) {
+        this.eraserRadius = Math.max(10, Math.min(100, radius));
+        console.log(`Eraser radius set to: ${this.eraserRadius}`);
     }
 }
