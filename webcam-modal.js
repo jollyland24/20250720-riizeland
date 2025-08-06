@@ -1,4 +1,4 @@
-// webcam-modal.js - Complete version with fixed canvas initialization
+// webcam-modal.js - Complete version with jiggling brush animation and warm orange colors
 export class WebcamModal {
     constructor() {
         this.modal = document.getElementById('webcam-modal');
@@ -23,6 +23,14 @@ export class WebcamModal {
         this.isDrawing = false;
         this.lastDrawPoint = null;
         this.permanentLines = [];
+        this.currentStrokeColor = null; // Store the picked color for current stroke
+        
+        // Animation variables for jiggle effect
+        this.jiggleIntensity = 2; // How much the strokes jiggle
+        this.jiggleSpeed = 0.05; // How fast they jiggle
+        this.animationTime = 0;
+        this.lastJiggleUpdate = 0;
+        this.lineAnimations = new Map(); // Store animation data per line
         
         this.initMediaPipe();
         this.initEventListeners();
@@ -216,7 +224,7 @@ export class WebcamModal {
         // Clear canvas completely
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Redraw all permanent lines
+        // Redraw all lines with animation
         this.redrawAllLines();
         
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
@@ -263,10 +271,13 @@ export class WebcamModal {
         }
     }
     
+    // Enhanced finger cursor with warm orange colors
     drawFingerCursor(indexTip) {
-        // Pulsing dot to show drawing position
-        const pulse = 5 + Math.sin(Date.now() * 0.02) * 2;
-        this.ctx.fillStyle = '#FF6B00';
+        const time = Date.now() * 0.01;
+        
+        // Main pulsing dot
+        const pulse = 5 + Math.sin(time * 0.3) * 3;
+        this.ctx.fillStyle = '#FFB07A'; // Warm peach color
         this.ctx.globalAlpha = 0.8;
         this.ctx.beginPath();
         this.ctx.arc(
@@ -277,6 +288,36 @@ export class WebcamModal {
             2 * Math.PI
         );
         this.ctx.fill();
+        
+        // Outer ring animation
+        const ringPulse = 12 + Math.sin(time * 0.2) * 4;
+        this.ctx.strokeStyle = '#FF8C42'; // Slightly darker orange
+        this.ctx.lineWidth = 2;
+        this.ctx.globalAlpha = 0.4;
+        this.ctx.beginPath();
+        this.ctx.arc(
+            indexTip.x * this.canvas.width,
+            indexTip.y * this.canvas.height,
+            ringPulse,
+            0,
+            2 * Math.PI
+        );
+        this.ctx.stroke();
+        
+        // Sparkle effects around cursor
+        for (let i = 0; i < 3; i++) {
+            const sparkleAngle = time * 0.1 + i * (Math.PI * 2 / 3);
+            const sparkleRadius = 15 + Math.sin(time * 0.4 + i) * 5;
+            const sparkleX = indexTip.x * this.canvas.width + Math.cos(sparkleAngle) * sparkleRadius;
+            const sparkleY = indexTip.y * this.canvas.height + Math.sin(sparkleAngle) * sparkleRadius;
+            
+            this.ctx.fillStyle = '#FFCC99'; // Light peach for sparkles
+            this.ctx.globalAlpha = 0.6;
+            this.ctx.beginPath();
+            this.ctx.arc(sparkleX, sparkleY, 2, 0, 2 * Math.PI);
+            this.ctx.fill();
+        }
+        
         this.ctx.globalAlpha = 1.0;
     }
     
@@ -290,10 +331,11 @@ export class WebcamModal {
         // Now draw for any index pointing gesture (more forgiving)
         if (gesture.includes('index_pointing')) {
             if (!this.isDrawing) {
-                // Start drawing
+                // Start drawing - pick color from background at finger position
                 this.isDrawing = true;
                 this.lastDrawPoint = currentPoint;
-                console.log('Drawing started - index pointing detected!');
+                this.currentStrokeColor = this.sampleColorFromBackground(currentPoint);
+                console.log('Drawing started - index pointing detected! Color sampled:', this.currentStrokeColor);
             } else {
                 // Continue drawing
                 if (this.lastDrawPoint) {
@@ -303,10 +345,24 @@ export class WebcamModal {
                     if (distance > 2) {
                         const line = {
                             from: { ...this.lastDrawPoint },
-                            to: { ...currentPoint }
+                            to: { ...currentPoint },
+                            id: `line_${Date.now()}_${Math.random()}`, // Unique ID for each line
+                            age: 0, // How long this line has existed
+                            baseWidth: 30 + Math.random() * 10, // Varied line width
+                            opacity: 1.0, // Full opacity - no transparency
+                            color: this.currentStrokeColor // Use the sampled color
                         };
                         
                         this.permanentLines.push(line);
+                        
+                        // Initialize animation data for this line
+                        this.lineAnimations.set(line.id, {
+                            jigglePhase: Math.random() * Math.PI * 2, // Random starting phase
+                            jiggleAmplitude: 0.5 + Math.random() * 1.5, // Individual jiggle amount
+                            pulsePhase: Math.random() * Math.PI * 2,
+                            birthTime: Date.now()
+                        });
+                        
                         this.lastDrawPoint = currentPoint;
                     }
                 }
@@ -316,6 +372,7 @@ export class WebcamModal {
             if (this.isDrawing) {
                 this.isDrawing = false;
                 this.lastDrawPoint = null;
+                this.currentStrokeColor = null; // Reset color
                 console.log('Drawing stopped - not pointing');
             }
         }
@@ -324,26 +381,123 @@ export class WebcamModal {
     redrawAllLines() {
         if (this.permanentLines.length === 0) return;
         
+        const now = Date.now();
+        this.animationTime = now * 0.001; // Convert to seconds
+        
         this.ctx.save();
         this.ctx.scale(-1, 1);
         this.ctx.translate(-this.canvas.width, 0);
         
-        // Draw all lines with nice brush effect
-        this.ctx.strokeStyle = '#FF6B00';
-        this.ctx.lineWidth = 30;
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-        this.ctx.globalAlpha = 0.8;
-        
-        this.permanentLines.forEach(line => {
+        // Draw each line with individual jiggle animation
+        this.permanentLines.forEach((line, index) => {
+            const animData = this.lineAnimations.get(line.id);
+            if (!animData) return;
+            
+            // Calculate age-based effects
+            const age = (now - animData.birthTime) * 0.001; // Age in seconds
+            const fadeFactor = Math.min(1, age * 2); // Fade in over 0.5 seconds
+            const settleFactor = Math.max(0.3, 1 - age * 0.1); // Reduce jiggle over time
+            
+            // Calculate jiggle offset for this line
+            const jigglePhase = animData.jigglePhase + this.animationTime * this.jiggleSpeed * (2 + index * 0.1);
+            const jiggleX = Math.sin(jigglePhase) * this.jiggleIntensity * animData.jiggleAmplitude * settleFactor;
+            const jiggleY = Math.cos(jigglePhase * 1.3) * this.jiggleIntensity * animData.jiggleAmplitude * settleFactor;
+            
+            // Calculate pulse effect for line width
+            const pulsePhase = animData.pulsePhase + this.animationTime * 3;
+            const pulseFactor = 1 + Math.sin(pulsePhase) * 0.2 * settleFactor;
+            
+            // Apply jiggle and pulse effects
+            const fromX = line.from.x + jiggleX;
+            const fromY = line.from.y + jiggleY;
+            const toX = line.to.x + jiggleX + Math.sin(jigglePhase + 0.5) * this.jiggleIntensity * 0.5;
+            const toY = line.to.y + jiggleY + Math.cos(jigglePhase + 0.5) * this.jiggleIntensity * 0.5;
+            
+            // Set drawing style with animation
+            this.ctx.strokeStyle = line.color || this.getAnimatedColor(age, animData);
+            this.ctx.lineWidth = line.baseWidth * pulseFactor;
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            this.ctx.globalAlpha = 1.0; // Always full opacity
+            
+            // Add some randomness to make it more organic
+            if (Math.random() < 0.1) {
+                this.ctx.shadowColor = line.color || '#FFB07A'; // Use line color or fallback
+                this.ctx.shadowBlur = 5 + Math.sin(this.animationTime * 4) * 3;
+            } else {
+                this.ctx.shadowBlur = 0;
+            }
+            
+            // Draw the animated line
             this.ctx.beginPath();
-            this.ctx.moveTo(line.from.x, line.from.y);
-            this.ctx.lineTo(line.to.x, line.to.y);
+            this.ctx.moveTo(fromX, fromY);
+            this.ctx.lineTo(toX, toY);
             this.ctx.stroke();
         });
         
         this.ctx.globalAlpha = 1.0;
+        this.ctx.shadowBlur = 0;
         this.ctx.restore();
+    }
+    
+    sampleColorFromBackground(point) {
+        try {
+            // Create a temporary canvas to sample from the video
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Set canvas size to match video
+            tempCanvas.width = this.video.videoWidth;
+            tempCanvas.height = this.video.videoHeight;
+            
+            // Draw the current video frame (flipped to match the display)
+            tempCtx.scale(-1, 1);
+            tempCtx.translate(-tempCanvas.width, 0);
+            tempCtx.drawImage(this.video, 0, 0);
+            
+            // Convert screen coordinates to video coordinates
+            const scaleX = this.video.videoWidth / this.canvas.width;
+            const scaleY = this.video.videoHeight / this.canvas.height;
+            
+            const videoX = Math.floor(point.x * scaleX);
+            const videoY = Math.floor(point.y * scaleY);
+            
+            // Sample pixel color
+            const imageData = tempCtx.getImageData(videoX, videoY, 1, 1);
+            const [r, g, b, a] = imageData.data;
+            
+            // Return CSS color string
+            const color = `rgb(${r}, ${g}, ${b})`;
+            console.log(`Sampled color at (${videoX}, ${videoY}):`, color);
+            
+            return color;
+        } catch (error) {
+            console.error('Error sampling color:', error);
+            // Fallback to warm orange if sampling fails
+            return '#FFB07A';
+        }
+    }
+
+    getAnimatedColor(age, animData) {
+        // Warm orange/peach colors to match the floating island
+        const colorPhase = animData.pulsePhase + this.animationTime * 2;
+        const brightness = Math.min(1, 0.8 + Math.sin(colorPhase) * 0.2);
+        
+        // Warm peach/orange RGB components (similar to #FFB07A - light salmon)
+        let r = Math.floor(255 * brightness);
+        let g = Math.floor(176 * brightness);
+        let b = Math.floor(122 * brightness);
+        
+        // Subtle color variation for newer strokes to keep them lively
+        if (age < 1) {
+            const variation = Math.sin(this.animationTime * 3 + animData.jigglePhase) * 15;
+            // Add more warmth variation
+            r = Math.min(255, Math.max(0, r + variation * 0.2));
+            g = Math.min(255, Math.max(0, g + variation * 0.3));
+            b = Math.min(255, Math.max(0, b + variation * 0.4));
+        }
+        
+        return `rgb(${r}, ${g}, ${b})`;
     }
     
     distance2D(point1, point2) {
@@ -354,8 +508,10 @@ export class WebcamModal {
     
     clearDrawing() {
         this.permanentLines = [];
+        this.lineAnimations.clear(); // Clear animation data too
         this.isDrawing = false;
         this.lastDrawPoint = null;
+        this.currentStrokeColor = null; // Reset current stroke color
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         console.log('🧹 Drawing cleared!');
     }
@@ -532,8 +688,10 @@ export class WebcamModal {
         }
         
         this.permanentLines = [];
+        this.lineAnimations.clear();
         this.isDrawing = false;
         this.lastDrawPoint = null;
+        this.currentStrokeColor = null; // Reset stroke color
     }
     
     updateStatus(message, type) {
@@ -543,5 +701,14 @@ export class WebcamModal {
     
     getCurrentGesture() {
         return this.currentGesture;
+    }
+    
+    // Optional: Add methods to adjust jiggle intensity
+    setJiggleIntensity(intensity) {
+        this.jiggleIntensity = Math.max(0, Math.min(10, intensity));
+    }
+    
+    setJiggleSpeed(speed) {
+        this.jiggleSpeed = Math.max(0.01, Math.min(0.2, speed));
     }
 }
