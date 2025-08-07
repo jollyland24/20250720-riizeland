@@ -1,46 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Document</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="./style.css">
-    </head>
-    <body>
-        <div id="experience">
-            <canvas id="experience-canvas"></canvas>
-        </div>
-
-
-
-        <div class="members">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div id="experience">
+        <canvas id="experience-canvas"></canvas>
+    </div>
+    
+    <div class="members">
         <div class="member0" data-model="simplehead"><img src="./member0.png" alt="member0"></div>
         <div class="member1" data-model="sungchan"><img src="./member1.png" alt="member1"></div>
         <div class="member2" data-model="eunseok"><img src="./member2.png" alt="member2"></div>
         <div class="member3" data-model="shotaro"><img src="./member3.png" alt="member3"></div>
         <div class="member4" data-model="sohee"><img src="./member4.png" alt="member4"></div>
         <div class="member5" data-model="anton"><img src="./member5.png" alt="member5"></div>
+    </div>
+
+    <!-- <div class="control">
+        <button class="gesture-activate">open</button>
+    </div> -->
+
+    <!-- Simplified Webcam Modal -->
+    <!-- <div class="modal-overlay" id="webcam-modal">
+        <div class="modal-content">
+            <button class="close-btn" id="close-modal">&times;</button>
+            <h2>Hand Tracking</h2>
+            
+            <div class="status-message status-loading" id="status-message">
+                Click "Start Camera" to begin
+            </div>
+            
+            <div class="video-container hidden" id="video-container">
+                <video id="webcam-video" autoplay muted playsinline></video>
+                <canvas id="hand-canvas"></canvas>
+            </div>
+            
+            <div class="control-buttons">
+                <button class="control-btn primary" id="start-camera">Start Camera</button>
+                <button class="control-btn secondary hidden" id="stop-camera">Stop Camera</button>
+            </div>
         </div>
+    </div> -->
 
-        <div class="control">
-            <button class="gesture-activate">open</button>
-        </div>
-
-        
-<!-- music and sound effect control-->
-
-        <script type="importmap">
-        {
+    <!-- Scripts -->
+    <script type="importmap">
+    {
         "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js",
             "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"
         }
-        }
-        </script>
-        <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
-        <script type="module" src="./main.js"></script>
-    </body>
+    }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+    
+    <!-- Working MediaPipe Scripts (Older but Stable API) -->
+    <script src="https://unpkg.com/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://unpkg.com/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://unpkg.com/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://unpkg.com/@mediapipe/hands/hands.js"></script>
+    
+    <script type="module" src="./main.js"></script>
+</body>
 </html>
