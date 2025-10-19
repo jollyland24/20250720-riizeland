@@ -1,0 +1,12 @@
+{
+  "prompt": "Create a pixelated 8-bit style character based on the person in the user photo, placed in this floating island scene. The character should:\n        - Look like the person from the reference photo but in retro pixel art style (like classic video games)\n        - Have chunky, blocky pixels and limited color palette for authentic 8-bit aesthetic\n        - Be positioned ON or NEAR the floating islands, not just floating in empty sky\n        - Appear to be exploring, jumping between, or landing on the island platforms\n        - Be properly sized to interact with the island environment (not tiny, not huge)\n        - Have clear pixel outlines and be reminiscent of classic platformer game characters\n        The background floating islands should remain exactly as they are, but add the pixelated character actively engaging with this RIIZE landscape.",
+  "requestTimestamp": "2025-10-19T22-27-30-862Z",
+  "modelEndpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
+  "apiModel": "gemini-2.5-flash-image",
+  "responsePreview": {
+    "success": true,
+    "hasImage": true,
+    "mimeType": "image/jpeg",
+    "imageSizeBytes": 1727196
+  }
+}

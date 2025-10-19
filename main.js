@@ -1138,17 +1138,25 @@ async function captureSceneBackground() {
             // This ensures the captured image matches what the user sees on screen
             composer.render();
 
-            // Method 1: Try direct WebGL context readPixels with post-processing
+            // Method 1: Try capturing from composer's render target
             try {
+                // Get the final render target from the composer
+                const renderTarget = composer.renderTarget2 || composer.writeBuffer;
                 const gl = renderer.getContext();
 
-                const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
-                gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+                // Bind the composer's framebuffer to read from it
+                gl.bindFramebuffer(gl.FRAMEBUFFER, renderTarget.framebuffer);
+
+                const pixels = new Uint8Array(renderTarget.width * renderTarget.height * 4);
+                gl.readPixels(0, 0, renderTarget.width, renderTarget.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+                // Restore default framebuffer
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
                 // Create canvas and flip the image (WebGL is upside down)
                 const canvas = document.createElement('canvas');
-                canvas.width = gl.drawingBufferWidth;
-                canvas.height = gl.drawingBufferHeight;
+                canvas.width = renderTarget.width;
+                canvas.height = renderTarget.height;
                 const ctx = canvas.getContext('2d');
 
                 const imageData = ctx.createImageData(canvas.width, canvas.height);
@@ -1167,7 +1175,7 @@ async function captureSceneBackground() {
 
                 ctx.putImageData(imageData, 0, 0);
 
-                console.log('Scene captured using WebGL readPixels with post-processing effects preserved');
+                console.log('Scene captured from EffectComposer render target with retro effects');
 
                 // Restore UI elements
                 uiElements.forEach((el, index) => {
