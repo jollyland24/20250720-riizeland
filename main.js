@@ -22,8 +22,29 @@ changeSound.preload = 'auto';
 const backgroundMusic = document.getElementById('background-music');
 const playBtn = document.getElementById('play-btn');
 const stopBtn = document.getElementById('stop-btn');
+const audioIndicator = document.getElementById('audio-indicator');
 
 let isPlaying = false;
+
+// Zoom-audio effect variables
+let previousZoom = 0.6; // Initial zoom value
+let currentZoom = 0.6;
+let zoomVelocity = 0;
+let targetPlaybackRate = 1.0;
+let targetVolume = 1.0;
+let currentPlaybackRate = 1.0;
+let currentVolume = 1.0;
+
+// Audio context for better control (Web Audio API)
+let audioContext = null;
+let gainNode = null;
+let sourceNode = null;
+
+// Effect settings - EXTREME Slow motion feel
+const ZOOM_SENSITIVITY = 25.0; // MUCH higher sensitivity (was 15.0)
+const MIN_SLOW_MOTION = 0.15; // SUPER slow minimum (was 0.3 - now can go to 0.15x!)
+const MAX_VOLUME_REDUCTION = 0.8; // More dramatic volume drop (was 0.6)
+const DECAY_RATE = 0.70; // MUCH faster bounce back to normal speed
 
 
 const characterModels = {
@@ -899,17 +920,38 @@ window.addEventListener("keydown", onKeyDown);
 playBtn.addEventListener('click', togglePlayStop);
 stopBtn.addEventListener('click', stopMusic);
 
+function initAudioContext() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Create gain node for volume control
+        gainNode = audioContext.createGain();
+        gainNode.connect(audioContext.destination);
+
+        // Connect the audio element to Web Audio API
+        if (!sourceNode) {
+            sourceNode = audioContext.createMediaElementSource(backgroundMusic);
+            sourceNode.connect(gainNode);
+        }
+    }
+}
+
 function togglePlayStop() {
     if (isPlaying) {
         backgroundMusic.pause();
         playBtn.textContent = '▶';
         isPlaying = false;
+        console.log('Music stopped');
     } else {
+        // Initialize audio context on first play (required by browsers)
+        initAudioContext();
+
         backgroundMusic.play().catch(error => {
             console.log('Audio playback failed:', error);
         });
         playBtn.textContent = '⏸';
         isPlaying = true;
+        console.log('Music started, zoom effects should now work');
     }
 }
 
@@ -918,6 +960,114 @@ function stopMusic() {
     backgroundMusic.currentTime = 0;
     playBtn.textContent = '▶';
     isPlaying = false;
+
+    // Reset audio effects
+    resetAudioEffects();
+}
+
+function resetAudioEffects() {
+    currentPlaybackRate = 1.0;
+    currentVolume = 1.0;
+    targetPlaybackRate = 1.0;
+    targetVolume = 1.0;
+    zoomVelocity = 0;
+
+    if (backgroundMusic) {
+        backgroundMusic.playbackRate = 1.0;
+    }
+    if (gainNode) {
+        gainNode.gain.value = 1.0;
+    }
+}
+
+function updateZoomEffects() {
+    if (!isPlaying) return;
+
+    // Get current zoom and calculate velocity
+    currentZoom = camera.zoom;
+    zoomVelocity = currentZoom - previousZoom;
+    previousZoom = currentZoom;
+
+    // Calculate zoom intensity (absolute value - direction doesn't matter)
+    const zoomIntensity = Math.abs(zoomVelocity) * ZOOM_SENSITIVITY;
+
+    // Only apply effects if actively zooming (lowered threshold for more sensitivity)
+    if (Math.abs(zoomVelocity) > 0.0005) {
+        // EXTREME SLOW MOTION EFFECT: The faster you zoom, the slower the music gets
+        // Much more aggressive slow motion feel
+        const slowMotionFactor = Math.min(zoomIntensity, 0.85); // Higher cap for more dramatic effect
+
+        targetPlaybackRate = 1.0 - slowMotionFactor; // Subtract from 1.0 to slow down
+        targetVolume = 1.0 - (slowMotionFactor * MAX_VOLUME_REDUCTION); // Reduce volume for dramatic effect
+
+        // Ensure we don't go below minimum values
+        targetPlaybackRate = Math.max(MIN_SLOW_MOTION, targetPlaybackRate);
+        targetVolume = Math.max(0.1, targetVolume); // Allow even lower volume
+
+        console.log(`🎬 EXTREME SLOW MOTION: velocity ${zoomVelocity.toFixed(4)}, intensity ${zoomIntensity.toFixed(4)}, target rate ${targetPlaybackRate.toFixed(3)}`);
+    }
+
+    // Gradual return to normal speed when not zooming
+    targetPlaybackRate = targetPlaybackRate * DECAY_RATE + 1.0 * (1 - DECAY_RATE);
+    targetVolume = targetVolume * DECAY_RATE + 1.0 * (1 - DECAY_RATE);
+
+    // SUPER FAST interpolation for immediate response and quick bounce back
+    currentPlaybackRate += (targetPlaybackRate - currentPlaybackRate) * 0.35;
+    currentVolume += (targetVolume - currentVolume) * 0.35;
+
+    // Apply effects
+    if (backgroundMusic) {
+        const newRate = Math.max(MIN_SLOW_MOTION, Math.min(2.0, currentPlaybackRate));
+        backgroundMusic.playbackRate = newRate;
+
+        // Update visual indicator with DRAMATIC effects
+        if (audioIndicator) {
+            audioIndicator.textContent = `${newRate.toFixed(2)}x`;
+
+            // EXTREME visual feedback
+            if (newRate < 0.95) {
+                // Slow motion - MUCH more dramatic colors and effects
+                const slowness = (1.0 - newRate) / (1.0 - MIN_SLOW_MOTION); // 0 to 1
+
+                // More dramatic color transitions
+                if (newRate < 0.3) {
+                    // EXTREME slow motion - deep red/purple
+                    audioIndicator.style.backgroundColor = `rgba(200, 20, 255, 0.95)`;
+                    audioIndicator.style.color = 'white';
+                    audioIndicator.style.transform = 'scale(1.2)';
+                    audioIndicator.style.boxShadow = '0 0 20px rgba(200, 20, 255, 0.8)';
+                } else if (newRate < 0.6) {
+                    // Heavy slow motion - bright purple
+                    audioIndicator.style.backgroundColor = `rgba(150, 50, 255, 0.9)`;
+                    audioIndicator.style.color = 'white';
+                    audioIndicator.style.transform = 'scale(1.1)';
+                    audioIndicator.style.boxShadow = '0 0 15px rgba(150, 50, 255, 0.6)';
+                } else {
+                    // Light slow motion - blue
+                    audioIndicator.style.backgroundColor = `rgba(100, 100, 255, 0.8)`;
+                    audioIndicator.style.color = 'white';
+                    audioIndicator.style.transform = 'scale(1.05)';
+                    audioIndicator.style.boxShadow = '0 0 10px rgba(100, 100, 255, 0.4)';
+                }
+            } else {
+                // Normal speed
+                audioIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                audioIndicator.style.color = 'white';
+                audioIndicator.style.transform = 'scale(1.0)';
+                audioIndicator.style.boxShadow = 'none';
+            }
+        }
+
+        // Log significant changes
+        if (Math.abs(newRate - 1.0) > 0.05) {
+            console.log(`SLOW MOTION APPLIED: ${newRate.toFixed(3)}x`);
+        }
+    }
+
+    if (gainNode) {
+        const newVolume = Math.max(0.1, Math.min(2.0, currentVolume));
+        gainNode.gain.value = newVolume;
+    }
 }
 
 
@@ -946,7 +1096,10 @@ function animate() {
   updateStars();
   updateTape();
   updateBoundingBoxes();
-  
+
+  // Update zoom-based audio effects
+  updateZoomEffects();
+
   // Update shader time uniform for animated grain
   const time = Date.now() * 0.001;
   retroPass.uniforms.time.value = time;
