@@ -23,16 +23,24 @@
         <div class="member5" data-model="anton"><img src="./member5.png" alt="member5"></div>
     </div>
 
-    <!-- Audio Controls -->
-    <div class="audio-controls">
-        <audio id="background-music" preload="auto" loop>
-            <source src="./RIIZE Odyssey Instrumental.mp3" type="audio/mpeg">
-            Your browser does not support the audio element.
-        </audio>
-        <div class="audio-indicator" id="audio-indicator">1.00x</div>
-        <div class="audio-buttons">
-            <button id="play-btn" class="audio-btn">▶</button>
-            <button id="stop-btn" class="audio-btn">⏹</button>
+    <!-- Bottom Controls -->
+    <div class="bottom-controls">
+        <!-- Camera Button -->
+        <div class="camera-controls">
+            <button id="camera-btn" class="control-btn camera">📷</button>
+        </div>
+
+        <!-- Audio Controls -->
+        <div class="audio-controls">
+            <audio id="background-music" preload="auto" loop>
+                <source src="./RIIZE Odyssey Instrumental.mp3" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+            <div class="audio-indicator" id="audio-indicator">1.00x</div>
+            <div class="audio-buttons">
+                <button id="play-btn" class="audio-btn">▶</button>
+                <button id="stop-btn" class="audio-btn">⏹</button>
+            </div>
         </div>
     </div>
 
@@ -40,27 +48,37 @@
         <button class="gesture-activate">open</button>
     </div> -->
 
+    <!-- Polaroid Camera Overlay -->
+    <div class="polaroid-overlay" id="polaroid-overlay">
+        <div class="polaroid-camera">
+            <div class="camera-parts">
+                <img src="./cam-up.png" alt="Camera Top" class="cam-up">
+                <img src="./cam-down.png" alt="Camera Bottom" class="cam-down">
+            </div>
+        </div>
+    </div>
+
     <!-- Simplified Webcam Modal -->
-    <!-- <div class="modal-overlay" id="webcam-modal">
+    <div class="modal-overlay" id="webcam-modal">
         <div class="modal-content">
             <button class="close-btn" id="close-modal">&times;</button>
             <h2>Hand Tracking</h2>
-            
+
             <div class="status-message status-loading" id="status-message">
                 Click "Start Camera" to begin
             </div>
-            
+
             <div class="video-container hidden" id="video-container">
                 <video id="webcam-video" autoplay muted playsinline></video>
                 <canvas id="hand-canvas"></canvas>
             </div>
-            
+
             <div class="control-buttons">
                 <button class="control-btn primary" id="start-camera">Start Camera</button>
                 <button class="control-btn secondary hidden" id="stop-camera">Stop Camera</button>
             </div>
         </div>
-    </div> -->
+    </div>
 
     <!-- Scripts -->
     <script type="importmap">

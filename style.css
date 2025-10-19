@@ -286,15 +286,60 @@
     background-color: rgba(255, 255, 255, 0.3);
 }
 
-/* Audio Controls */
-.audio-controls {
+/* Bottom Controls Layout */
+.bottom-controls {
     position: fixed;
     bottom: 2rem;
+    left: 2rem;
     right: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    z-index: 999;
+    pointer-events: none;
+}
+
+.bottom-controls > * {
+    pointer-events: auto;
+}
+
+/* Camera Controls */
+.camera-controls {
+    display: flex;
+    align-items: center;
+}
+
+.control-btn.camera {
+    width: 3.5rem;
+    height: 3.5rem;
+    border: none;
+    border-radius: 50%;
+    background-color: rgba(143, 173, 255, 0.8);
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Doto", sans-serif;
+}
+
+.control-btn.camera:hover {
+    background-color: rgba(143, 173, 255, 1);
+    transform: scale(1.1);
+}
+
+.control-btn.camera:active {
+    transform: scale(0.95);
+}
+
+/* Audio Controls */
+.audio-controls {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    z-index: 999;
     align-items: center;
 }
 
@@ -344,4 +389,48 @@
 
 #background-music {
     display: none;
+}
+
+/* Polaroid Camera Overlay */
+.polaroid-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3000;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+}
+
+.polaroid-camera {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.camera-parts {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.cam-up, .cam-down {
+    display: block;
+    width: 300px;
+    height: auto;
+}
+
+.cam-up {
+    z-index: 2;
+    margin-bottom: -5px; /* Slight overlap to connect the parts */
+}
+
+.cam-down {
+    z-index: 1;
 }

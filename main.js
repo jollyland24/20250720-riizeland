@@ -983,6 +983,29 @@ window.addEventListener("keydown", onKeyDown);
 playBtn.addEventListener('click', togglePlayStop);
 stopBtn.addEventListener('click', stopMusic);
 
+// Camera control event listener
+const cameraBtn = document.getElementById('camera-btn');
+const polaroidOverlay = document.getElementById('polaroid-overlay');
+
+cameraBtn.addEventListener('click', () => {
+    // Show polaroid camera overlay
+    polaroidOverlay.style.display = 'flex';
+});
+
+// Close polaroid overlay when clicking outside the camera
+polaroidOverlay.addEventListener('click', (e) => {
+    if (e.target === polaroidOverlay) {
+        polaroidOverlay.style.display = 'none';
+    }
+});
+
+// Close polaroid overlay with Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && polaroidOverlay.style.display === 'flex') {
+        polaroidOverlay.style.display = 'none';
+    }
+});
+
 function initAudioContext() {
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
