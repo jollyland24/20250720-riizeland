@@ -204,7 +204,8 @@ app.post('/api/merge-images', upload.fields([
         - Appear to be exploring, jumping between, or landing on the island platforms
         - Be properly sized to interact with the island environment (not tiny, not huge)
         - Have clear pixel outlines and be reminiscent of classic platformer game characters
-        The background floating islands should remain exactly as they are, but add the pixelated character actively engaging with this RIIZE landscape.`;
+
+        IMPORTANT: Keep ALL existing elements in the scene exactly as they are (including any characters, objects, cassette tapes, stars, etc.). If there are other characters or objects present, make the new user character appear to be interacting with them - they could be exploring together, approaching each other, or engaging in the same activity. The goal is to add the user character as if they belong in this world alongside whatever is already there.`;
 
         // Gemini API payload format - include both user photo and scene
         const payload = {
