@@ -177,9 +177,7 @@ app.post('/api/merge-images', upload.fields([
         fs.writeFileSync(`${debugFolder}/02-original-scene-photo.jpg`, scenePhotoBuffer);
         console.log(`🐛 Debug images saved to: ${debugFolder}`);
 
-        // Get access token
-        const client = await auth.getClient();
-        const accessToken = await client.getAccessToken();
+        // Gemini API uses API key authentication (no need for access token)
 
         // Resize images to match dimensions before processing
         const { resizedUserPhoto, resizedScenePhoto } = await resizeImagesToMatch(userPhotoBuffer, scenePhotoBuffer);
@@ -195,37 +193,52 @@ app.post('/api/merge-images', upload.fields([
         const userPhotoBase64 = resizedUserPhoto.toString('base64');
         const scenePhotoBase64 = resizedScenePhoto.toString('base64');
 
-        // Vertex AI endpoint - use the generate model with better prompt strategy
-        const endpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${process.env.GOOGLE_CLOUD_PROJECT_ID}/locations/${process.env.GOOGLE_CLOUD_LOCATION}/publishers/google/models/imagen-3.0-generate-001:predict`;
+        // Gemini 2.5 Flash endpoint
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent`;
 
-        // Much simpler approach: generate an image with both as reference
-        const prompt = `Create an image showing a real person standing in this exact 3D floating island scene. The person should be naturally placed in the environment with realistic proportions, proper lighting that matches the scene, and appear to be part of this magical world. Keep the background scene exactly as shown. Use the reference images to guide the composition.`;
+        // Enhanced character-based image editing prompt with pixel aesthetic and interaction
+        const prompt = `Create a pixelated 8-bit style character based on the person in the user photo, placed in this floating island scene. The character should:
+        - Look like the person from the reference photo but in retro pixel art style (like classic video games)
+        - Have chunky, blocky pixels and limited color palette for authentic 8-bit aesthetic
+        - Be positioned ON or NEAR the floating islands, not just floating in empty sky
+        - Appear to be exploring, jumping between, or landing on the island platforms
+        - Be properly sized to interact with the island environment (not tiny, not huge)
+        - Have clear pixel outlines and be reminiscent of classic platformer game characters
+        The background floating islands should remain exactly as they are, but add the pixelated character actively engaging with this RIIZE landscape.`;
 
-        // Simple generation payload with base image
+        // Gemini API payload format - include both user photo and scene
         const payload = {
-            instances: [{
-                prompt: prompt,
-                image: {
-                    bytesBase64Encoded: scenePhotoBase64
-                },
-                parameters: {
-                    sampleCount: 1,
-                    aspectRatio: "1:1",
-                    safetyFilterLevel: "block_some",
-                    personGeneration: "allow_adult",
-                    guidanceScale: 15,
-                    seed: Math.floor(Math.random() * 1000000)
-                }
-            }]
+            contents: [{
+                parts: [
+                    {
+                        text: prompt
+                    },
+                    {
+                        inline_data: {
+                            mime_type: "image/jpeg",
+                            data: userPhotoBase64
+                        }
+                    },
+                    {
+                        inline_data: {
+                            mime_type: "image/jpeg",
+                            data: scenePhotoBase64
+                        }
+                    }
+                ]
+            }],
+            generation_config: {
+                response_modalities: ["IMAGE"]
+            }
         };
 
-        console.log('Sending request to Vertex AI...');
+        console.log('Sending request to Gemini 2.5 Flash...');
 
-        // Make request to Vertex AI
+        // Make request to Gemini API
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${accessToken.token}`,
+                'x-goog-api-key': process.env.GEMINI_API_KEY,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(payload)
@@ -233,12 +246,12 @@ app.post('/api/merge-images', upload.fields([
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Vertex AI error:', response.status, errorText);
+            console.error('Gemini API error:', response.status, errorText);
 
-            // Handle specific permission errors
-            if (response.status === 403) {
-                console.log('🔒 Permission denied - falling back to simple merge');
-                console.log('📋 Please check setup-gcloud.md for permission setup instructions');
+            // Handle specific permission/API key errors
+            if (response.status === 403 || response.status === 401) {
+                console.log('🔒 API key issue - falling back to simple merge');
+                console.log('📋 Please set your GEMINI_API_KEY in .env file');
 
                 // Return simple merge result instead of failing
                 const userPhotoBase64 = userPhotoBuffer.toString('base64');
@@ -246,51 +259,131 @@ app.post('/api/merge-images', upload.fields([
                     success: true,
                     image: userPhotoBase64,
                     mimeType: 'image/jpeg',
-                    message: 'Fallback mode: Vertex AI permissions needed. Check setup-gcloud.md',
+                    message: 'Fallback mode: Gemini API key needed. Set GEMINI_API_KEY in .env',
                     fallback: true
                 });
             }
 
-            throw new Error(`Vertex AI request failed: ${response.status} ${errorText}`);
+            // Handle quota exceeded errors
+            if (response.status === 429) {
+                console.log('⏱️ Quota exceeded - falling back to simple merge');
+                console.log('📋 Please wait 30+ seconds or upgrade your Gemini API plan');
+
+                // Return simple merge result instead of failing
+                const userPhotoBase64 = userPhotoBuffer.toString('base64');
+                return res.json({
+                    success: true,
+                    image: userPhotoBase64,
+                    mimeType: 'image/jpeg',
+                    message: 'Fallback mode: Gemini quota exceeded. Wait 30s or upgrade plan.',
+                    fallback: true
+                });
+            }
+
+            throw new Error(`Gemini API request failed: ${response.status} ${errorText}`);
         }
 
         const result = await response.json();
-        console.log('Vertex AI response received');
+        console.log('Gemini API response received');
+        console.log('Response structure:', JSON.stringify(result, null, 2));
 
-        if (result.predictions && result.predictions.length > 0) {
-            const generatedImage = result.predictions[0];
+        if (result.candidates && result.candidates.length > 0) {
+            const candidate = result.candidates[0];
 
-            // Save AI output for debugging
-            if (generatedImage.bytesBase64Encoded) {
-                const outputImageBuffer = Buffer.from(generatedImage.bytesBase64Encoded, 'base64');
-                fs.writeFileSync(`${debugFolder}/05-ai-output.jpg`, outputImageBuffer);
-                console.log(`🤖 AI output saved to: ${debugFolder}/05-ai-output.jpg`);
+            // Handle NO_IMAGE response
+            if (candidate.finishReason === 'NO_IMAGE') {
+                console.log('🚫 Gemini refused to generate image - falling back to user photo');
+                console.log('📋 This might be due to safety filters or content policy');
+
+                const userPhotoBase64 = userPhotoBuffer.toString('base64');
+                return res.json({
+                    success: true,
+                    image: userPhotoBase64,
+                    mimeType: 'image/jpeg',
+                    message: 'Fallback mode: Gemini refused image generation (safety filters)',
+                    fallback: true,
+                    debugFolder: debugFolder
+                });
             }
 
-            // Save API request/response for debugging
-            const debugInfo = {
-                prompt: prompt,
-                requestTimestamp: debugTimestamp,
-                modelEndpoint: endpoint,
-                requestParameters: payload.instances[0].parameters,
-                responsePreview: {
-                    success: true,
-                    hasImage: !!generatedImage.bytesBase64Encoded,
-                    mimeType: generatedImage.mimeType || 'image/jpeg',
-                    imageSizeBytes: generatedImage.bytesBase64Encoded ? generatedImage.bytesBase64Encoded.length : 0
-                }
-            };
-            fs.writeFileSync(`${debugFolder}/00-debug-info.json`, JSON.stringify(debugInfo, null, 2));
+            const content = candidate.content;
 
-            // Return the generated image
-            res.json({
-                success: true,
-                image: generatedImage.bytesBase64Encoded,
-                mimeType: generatedImage.mimeType || 'image/jpeg',
-                debugFolder: debugFolder
+            // Find the image part in the response
+            let generatedImageData = null;
+            if (content && content.parts) {
+                console.log('Detailed parts inspection:');
+                for (let i = 0; i < content.parts.length; i++) {
+                    const part = content.parts[i];
+                    console.log(`Part ${i}:`, {
+                        hasInlineData: !!part.inline_data,
+                        hasInlineDataCamel: !!part.inlineData,
+                        mimeType: part.inline_data?.mime_type || part.inlineData?.mimeType,
+                        hasData: !!(part.inline_data?.data || part.inlineData?.data),
+                        dataLength: (part.inline_data?.data || part.inlineData?.data)?.length || 0,
+                        partKeys: Object.keys(part)
+                    });
+
+                    // Check for inline_data with image mime type (snake_case)
+                    if (part.inline_data && part.inline_data.mime_type && part.inline_data.mime_type.startsWith('image/')) {
+                        generatedImageData = part.inline_data.data;
+                        console.log('✅ Found image data via inline_data path (snake_case)');
+                        break;
+                    }
+                    // Check for inlineData with image mime type (camelCase)
+                    if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('image/')) {
+                        generatedImageData = part.inlineData.data;
+                        console.log('✅ Found image data via inlineData path (camelCase)');
+                        break;
+                    }
+                    // Also check for direct data field (alternative format)
+                    if (part.data) {
+                        generatedImageData = part.data;
+                        console.log('✅ Found image data via direct data path');
+                        break;
+                    }
+                }
+            }
+
+            console.log('Image extraction debug:', {
+                hasContent: !!content,
+                partsCount: content?.parts?.length || 0,
+                hasImageData: !!generatedImageData,
+                imageDataLength: generatedImageData?.length || 0
             });
+
+            if (generatedImageData) {
+                // Save AI output for debugging
+                const outputImageBuffer = Buffer.from(generatedImageData, 'base64');
+                fs.writeFileSync(`${debugFolder}/05-ai-output.jpg`, outputImageBuffer);
+                console.log(`🤖 AI output saved to: ${debugFolder}/05-ai-output.jpg`);
+
+                // Save API request/response for debugging
+                const debugInfo = {
+                    prompt: prompt,
+                    requestTimestamp: debugTimestamp,
+                    modelEndpoint: endpoint,
+                    apiModel: "gemini-2.5-flash-image",
+                    responsePreview: {
+                        success: true,
+                        hasImage: !!generatedImageData,
+                        mimeType: 'image/jpeg',
+                        imageSizeBytes: generatedImageData.length
+                    }
+                };
+                fs.writeFileSync(`${debugFolder}/00-debug-info.json`, JSON.stringify(debugInfo, null, 2));
+
+                // Return the generated image
+                res.json({
+                    success: true,
+                    image: generatedImageData,
+                    mimeType: 'image/jpeg',
+                    debugFolder: debugFolder
+                });
+            } else {
+                throw new Error('No image found in Gemini API response');
+            }
         } else {
-            throw new Error('No image generated by Vertex AI');
+            throw new Error('No candidates in Gemini API response');
         }
 
     } catch (error) {
@@ -360,8 +453,8 @@ app.listen(PORT, () => {
     console.log(`🔑 Google Cloud Project: ${process.env.GOOGLE_CLOUD_PROJECT_ID}`);
     console.log('📋 Available endpoints:');
     console.log('  GET  /health - Health check');
-    console.log('  GET  /api/auth/token - Get access token');
-    console.log('  POST /api/merge-images - Merge images with Vertex AI');
+    console.log('  GET  /api/auth/token - Get access token (legacy)');
+    console.log('  POST /api/merge-images - Merge images with Gemini 2.5 Flash');
     console.log('  POST /api/merge-images-simple - Simple demo merge');
 });
 

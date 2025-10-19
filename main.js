@@ -1134,20 +1134,13 @@ async function captureSceneBackground() {
 
         // Wait a frame for UI to hide
         requestAnimationFrame(() => {
-            // Force a render
-            renderer.render(scene, camera);
+            // Use the post-processing composer to maintain visual effects
+            // This ensures the captured image matches what the user sees on screen
+            composer.render();
 
-            // Method 1: Try direct WebGL context readPixels with proper color handling
+            // Method 1: Try direct WebGL context readPixels with post-processing
             try {
                 const gl = renderer.getContext();
-
-                // Ensure we're rendering with proper color settings
-                renderer.outputColorSpace = THREE.SRGBColorSpace;
-                renderer.toneMapping = THREE.ACESFilmicToneMapping;
-                renderer.toneMappingExposure = 1.0;
-
-                // Force a fresh render
-                renderer.render(scene, camera);
 
                 const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
                 gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
@@ -1174,7 +1167,7 @@ async function captureSceneBackground() {
 
                 ctx.putImageData(imageData, 0, 0);
 
-                console.log('Scene captured using WebGL readPixels method with proper color space');
+                console.log('Scene captured using WebGL readPixels with post-processing effects preserved');
 
                 // Restore UI elements
                 uiElements.forEach((el, index) => {

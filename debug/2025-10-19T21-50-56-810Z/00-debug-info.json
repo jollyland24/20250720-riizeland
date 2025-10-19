@@ -1,0 +1,21 @@
+{
+  "prompt": "Create a stylized digital character in this exact floating island scene. The character should be:\n        - Pixelated or stylized in a clean digital art style\n        - Flying or floating gracefully in the scene\n        - Well-defined with clear outlines and bold colors\n        - Proportioned like a video game character\n        - Integrated with the magical atmosphere\n        Keep the background scene colors and lighting exactly as shown. The character can be inspired by the reference photo but should be more stylized and fantastical.",
+  "requestTimestamp": "2025-10-19T21-50-56-810Z",
+  "modelEndpoint": "https://us-central1-aiplatform.googleapis.com/v1/projects/idyllic-bloom-474012-s9/locations/us-central1/publishers/google/models/imagen-3.0-generate-001:predict",
+  "requestParameters": {
+    "sampleCount": 1,
+    "aspectRatio": "1:1",
+    "safetyFilterLevel": "block_some",
+    "personGeneration": "allow_adult",
+    "guidanceScale": 20,
+    "seed": 94613,
+    "negativePrompt": "blurry, low quality, realistic photography, boring, plain, dark, muddy colors",
+    "styleBias": "digital_art"
+  },
+  "responsePreview": {
+    "success": true,
+    "hasImage": true,
+    "mimeType": "image/png",
+    "imageSizeBytes": 680004
+  }
+}
