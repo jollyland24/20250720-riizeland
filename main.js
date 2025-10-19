@@ -4,9 +4,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { WebcamModal } from './webcam-modal.js';
-
-let webcamModal = null;
+// Backend API configuration
+const BACKEND_URL = 'http://localhost:3001';
 
 const scene = new THREE.Scene();
 const raycaster = new THREE.Raycaster();
@@ -474,12 +473,6 @@ controls.maxZoom = 1.5;   // Maximum zoom in (larger = more zoomed in)
 controls.update();
 
 
-// Wait for DOM to be fully loaded before initializing webcam
-document.addEventListener('DOMContentLoaded', () => {
-    webcamModal = new WebcamModal();
-    window.webcamModal = webcamModal;
-    console.log('WebcamModal initialized');
-});
 
 // Add missing showModal function
 function showModal(objectName) {
@@ -985,26 +978,391 @@ stopBtn.addEventListener('click', stopMusic);
 
 // Camera control event listener
 const cameraBtn = document.getElementById('camera-btn');
-const polaroidOverlay = document.getElementById('polaroid-overlay');
+const cameraOverlay = document.getElementById('camera-overlay');
+const cameraVideo = document.getElementById('camera-video');
+const photoCaptureBtn = document.getElementById('photo-capture-btn');
+const processingIndicator = document.getElementById('processing-indicator');
+const cameraCloseBtn = document.getElementById('camera-close-btn');
+
+let cameraStream = null;
+let isCameraActive = false;
+let isProcessing = false;
 
 cameraBtn.addEventListener('click', () => {
-    // Show polaroid camera overlay
-    polaroidOverlay.style.display = 'flex';
-});
-
-// Close polaroid overlay when clicking outside the camera
-polaroidOverlay.addEventListener('click', (e) => {
-    if (e.target === polaroidOverlay) {
-        polaroidOverlay.style.display = 'none';
+    if (!isCameraActive) {
+        startCamera();
+    } else {
+        stopCamera();
     }
 });
 
-// Close polaroid overlay with Escape key
+cameraCloseBtn.addEventListener('click', () => {
+    stopCamera();
+});
+
+photoCaptureBtn.addEventListener('click', () => {
+    if (isCameraActive && !isProcessing) {
+        captureAndProcessPhoto();
+    }
+});
+
+async function startCamera() {
+    try {
+        cameraOverlay.style.display = 'block';
+
+        // Request camera access
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: 'user'
+            },
+            audio: false
+        });
+
+        cameraVideo.srcObject = cameraStream;
+        isCameraActive = true;
+
+        // Update camera button appearance
+        cameraBtn.style.backgroundColor = 'rgba(255, 100, 100, 0.8)';
+        cameraBtn.textContent = '📹';
+
+        console.log('Camera started successfully');
+
+    } catch (error) {
+        console.error('Camera error:', error);
+
+        // Hide overlay after 3 seconds if camera fails
+        setTimeout(() => {
+            if (!isCameraActive) {
+                cameraOverlay.style.display = 'none';
+            }
+        }, 3000);
+    }
+}
+
+function stopCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+
+    cameraVideo.srcObject = null;
+    cameraOverlay.style.display = 'none';
+    isCameraActive = false;
+    isProcessing = false;
+
+    // Reset camera button appearance
+    cameraBtn.style.backgroundColor = 'rgba(143, 173, 255, 0.8)';
+    cameraBtn.textContent = '📷';
+
+    // Hide processing indicator
+    processingIndicator.style.display = 'none';
+
+    console.log('Camera stopped');
+}
+
+// Close camera with Escape key
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && polaroidOverlay.style.display === 'flex') {
-        polaroidOverlay.style.display = 'none';
+    if (e.key === 'Escape' && isCameraActive) {
+        stopCamera();
     }
 });
+
+// Photo capture and AI processing functions
+async function captureAndProcessPhoto() {
+    if (isProcessing) return;
+
+    isProcessing = true;
+    photoCaptureBtn.style.display = 'none';
+    processingIndicator.style.display = 'flex';
+
+    try {
+        // Capture user photo
+        const userPhotoBlob = await captureUserPhoto();
+
+        // Capture scene background
+        const scenePhotoBlob = await captureSceneBackground();
+
+        // Send to Vertex AI for processing
+        const mergedImageBlob = await processWithVertexAI(userPhotoBlob, scenePhotoBlob);
+
+        // Display the result
+        await displayMergedImage(mergedImageBlob);
+
+        console.log('Photo processing completed successfully');
+
+    } catch (error) {
+        console.error('Photo processing error:', error);
+        alert('Failed to process photo. Please try again.');
+    } finally {
+        isProcessing = false;
+        photoCaptureBtn.style.display = 'flex';
+        processingIndicator.style.display = 'none';
+    }
+}
+
+async function captureUserPhoto() {
+    return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = cameraVideo.videoWidth;
+        canvas.height = cameraVideo.videoHeight;
+
+        // Draw the video frame (unmirrored for AI processing)
+        ctx.scale(-1, 1);
+        ctx.translate(-canvas.width, 0);
+        ctx.drawImage(cameraVideo, 0, 0);
+
+        canvas.toBlob(resolve, 'image/jpeg', 0.8);
+    });
+}
+
+async function captureSceneBackground() {
+    return new Promise((resolve) => {
+        // Temporarily hide UI elements for clean capture
+        const uiElements = [
+            document.querySelector('.members'),
+            document.querySelector('.bottom-controls'),
+            cameraOverlay
+        ];
+
+        uiElements.forEach(el => {
+            if (el) el.style.display = 'none';
+        });
+
+        // Wait a frame for UI to hide
+        requestAnimationFrame(() => {
+            // Force a render
+            renderer.render(scene, camera);
+
+            // Method 1: Try direct WebGL context readPixels with proper color handling
+            try {
+                const gl = renderer.getContext();
+
+                // Ensure we're rendering with proper color settings
+                renderer.outputColorSpace = THREE.SRGBColorSpace;
+                renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                renderer.toneMappingExposure = 1.0;
+
+                // Force a fresh render
+                renderer.render(scene, camera);
+
+                const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
+                gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+                // Create canvas and flip the image (WebGL is upside down)
+                const canvas = document.createElement('canvas');
+                canvas.width = gl.drawingBufferWidth;
+                canvas.height = gl.drawingBufferHeight;
+                const ctx = canvas.getContext('2d');
+
+                const imageData = ctx.createImageData(canvas.width, canvas.height);
+
+                // Flip the image vertically (WebGL coordinates are bottom-up)
+                for (let y = 0; y < canvas.height; y++) {
+                    for (let x = 0; x < canvas.width; x++) {
+                        const srcIndex = ((canvas.height - y - 1) * canvas.width + x) * 4;
+                        const dstIndex = (y * canvas.width + x) * 4;
+                        imageData.data[dstIndex] = pixels[srcIndex];     // R
+                        imageData.data[dstIndex + 1] = pixels[srcIndex + 1]; // G
+                        imageData.data[dstIndex + 2] = pixels[srcIndex + 2]; // B
+                        imageData.data[dstIndex + 3] = 255; // A (full opacity)
+                    }
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+
+                console.log('Scene captured using WebGL readPixels method with proper color space');
+
+                // Restore UI elements
+                uiElements.forEach((el, index) => {
+                    if (el) {
+                        el.style.display = index === 0 ? 'flex' :
+                                          index === 1 ? 'flex' : 'block';
+                    }
+                });
+
+                canvas.toBlob(resolve, 'image/jpeg', 0.9);
+
+            } catch (error) {
+                console.warn('WebGL readPixels failed, trying canvas method:', error);
+
+                // Method 2: Fallback to canvas drawImage (may not work with WebGL)
+                const canvas = document.createElement('canvas');
+                canvas.width = renderer.domElement.width;
+                canvas.height = renderer.domElement.height;
+                const ctx = canvas.getContext('2d');
+
+                try {
+                    ctx.drawImage(renderer.domElement, 0, 0);
+                    console.log('Scene captured using canvas drawImage method');
+                } catch (drawError) {
+                    console.warn('Canvas drawImage also failed:', drawError);
+                    // Create a test pattern as fallback
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '48px Arial';
+                    ctx.fillText('Scene Capture Failed', 50, 100);
+                }
+
+                // Restore UI elements
+                uiElements.forEach((el, index) => {
+                    if (el) {
+                        el.style.display = index === 0 ? 'flex' :
+                                          index === 1 ? 'flex' : 'block';
+                    }
+                });
+
+                canvas.toBlob(resolve, 'image/jpeg', 0.9);
+            }
+        });
+    });
+}
+
+
+async function processWithVertexAI(userPhotoBlob, scenePhotoBlob) {
+    try {
+        console.log('Sending images to backend for AI processing...');
+
+        // Create FormData for the backend request
+        const formData = new FormData();
+        formData.append('userPhoto', userPhotoBlob, 'user.jpg');
+        formData.append('scenePhoto', scenePhotoBlob, 'scene.jpg');
+
+        // Send to backend server
+        const response = await fetch(`${BACKEND_URL}/api/merge-images`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            // Try the simple endpoint as fallback
+            console.log('Primary endpoint failed, trying simple endpoint...');
+            const fallbackResponse = await fetch(`${BACKEND_URL}/api/merge-images-simple`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!fallbackResponse.ok) {
+                throw new Error(`Backend request failed: ${fallbackResponse.status}`);
+            }
+
+            const fallbackResult = await fallbackResponse.json();
+            console.log('Simple merge completed:', fallbackResult.message);
+
+            // Convert base64 back to blob
+            const imageBytes = atob(fallbackResult.image);
+            const imageArray = new Uint8Array(imageBytes.length);
+            for (let i = 0; i < imageBytes.length; i++) {
+                imageArray[i] = imageBytes.charCodeAt(i);
+            }
+
+            return new Blob([imageArray], { type: fallbackResult.mimeType || 'image/jpeg' });
+        }
+
+        const result = await response.json();
+
+        if (!result.success || !result.image) {
+            throw new Error('Invalid response from backend');
+        }
+
+        console.log('AI merge completed successfully!');
+
+        // Convert base64 back to blob
+        const imageBytes = atob(result.image);
+        const imageArray = new Uint8Array(imageBytes.length);
+        for (let i = 0; i < imageBytes.length; i++) {
+            imageArray[i] = imageBytes.charCodeAt(i);
+        }
+
+        return new Blob([imageArray], { type: result.mimeType || 'image/jpeg' });
+
+    } catch (error) {
+        console.error('Backend processing error:', error);
+
+        // Fallback: return user photo if backend fails
+        console.log('Using fallback: returning user photo');
+        return userPhotoBlob;
+    }
+}
+
+async function blobToBase64(blob) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(blob);
+    });
+}
+
+async function displayMergedImage(imageBlob) {
+    // Create a temporary image element to show the result
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(imageBlob);
+    img.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 80vw;
+        max-height: 80vh;
+        border-radius: 1rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        z-index: 3000;
+        border: 3px solid white;
+    `;
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 2999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = `
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: 3rem;
+        height: 3rem;
+        border: none;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 1.5rem;
+        cursor: pointer;
+        z-index: 3001;
+    `;
+
+    closeBtn.addEventListener('click', () => {
+        document.body.removeChild(overlay);
+        URL.revokeObjectURL(img.src);
+    });
+
+    overlay.appendChild(img);
+    overlay.appendChild(closeBtn);
+    document.body.appendChild(overlay);
+
+    // Auto-close after 10 seconds
+    setTimeout(() => {
+        if (document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+            URL.revokeObjectURL(img.src);
+        }
+    }, 10000);
+}
 
 function initAudioContext() {
     if (!audioContext) {

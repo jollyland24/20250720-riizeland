@@ -1,0 +1,19 @@
+{
+  "prompt": "Create an image showing a real person standing in this exact 3D floating island scene. The person should be naturally placed in the environment with realistic proportions, proper lighting that matches the scene, and appear to be part of this magical world. Keep the background scene exactly as shown. Use the reference images to guide the composition.",
+  "requestTimestamp": "2025-10-19T21-44-06-056Z",
+  "modelEndpoint": "https://us-central1-aiplatform.googleapis.com/v1/projects/idyllic-bloom-474012-s9/locations/us-central1/publishers/google/models/imagen-3.0-generate-001:predict",
+  "requestParameters": {
+    "sampleCount": 1,
+    "aspectRatio": "1:1",
+    "safetyFilterLevel": "block_some",
+    "personGeneration": "allow_adult",
+    "guidanceScale": 15,
+    "seed": 434422
+  },
+  "responsePreview": {
+    "success": true,
+    "hasImage": true,
+    "mimeType": "image/png",
+    "imageSizeBytes": 843680
+  }
+}
