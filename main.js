@@ -35,6 +35,21 @@ let targetVolume = 1.0;
 let currentPlaybackRate = 1.0;
 let currentVolume = 1.0;
 
+// Horizontal panning variables for DJ scrubbing
+let previousAzimuth = 0;
+let currentAzimuth = 0;
+let azimuthVelocity = 0;
+let lastScrubTime = 0;
+let scrubCooldown = 300; // ms between scrubs to prevent spam
+
+// Smooth scrubbing state
+let isScrubbing = false;
+let scrubDirection = null; // 'LEFT' or 'RIGHT'
+let scrubStartTime = 0;
+let scrubDuration = 200; // 0.2 second scrub effect
+let scrubSpeed = 3.0; // 3x speed during scrubbing
+let targetScrubRate = 1.0;
+
 // Audio context for better control (Web Audio API)
 let audioContext = null;
 let gainNode = null;
@@ -980,6 +995,83 @@ function resetAudioEffects() {
     }
 }
 
+function updatePanningEffects() {
+    if (!isPlaying) return;
+
+    const now = Date.now();
+
+    // Get current azimuth angle (horizontal rotation) from OrbitControls
+    currentAzimuth = controls.getAzimuthalAngle();
+    azimuthVelocity = currentAzimuth - previousAzimuth;
+    previousAzimuth = currentAzimuth;
+
+    // Check for significant horizontal movement (DJ scrubbing)
+    if (!isScrubbing && Math.abs(azimuthVelocity) > 0.02 && (now - lastScrubTime) > scrubCooldown) {
+        // Start new scrub effect
+        if (azimuthVelocity < -0.02) {
+            // Drag LEFT = Start smooth rewind
+            startScrubEffect('LEFT');
+        } else if (azimuthVelocity > 0.02) {
+            // Drag RIGHT = Start smooth fast-forward
+            startScrubEffect('RIGHT');
+        }
+        lastScrubTime = now;
+    }
+
+    // Handle ongoing scrub effect
+    if (isScrubbing) {
+        const elapsed = now - scrubStartTime;
+        const progress = elapsed / scrubDuration;
+
+        if (progress >= 1.0) {
+            // End scrub effect
+            endScrubEffect();
+        } else {
+            // Apply smooth scrub speed
+            targetScrubRate = scrubDirection === 'LEFT' ? -scrubSpeed : scrubSpeed;
+            updateScrubVisuals(progress);
+        }
+    }
+}
+
+function startScrubEffect(direction) {
+    isScrubbing = true;
+    scrubDirection = direction;
+    scrubStartTime = Date.now();
+
+    console.log(`🎧 SMOOTH SCRUB START: ${direction} at ${scrubSpeed}x speed for ${scrubDuration}ms`);
+
+    // Visual feedback for start of scrub
+    if (audioIndicator) {
+        audioIndicator.textContent = direction === 'LEFT' ? `◀ ${scrubSpeed}x` : `${scrubSpeed}x ▶`;
+        audioIndicator.style.backgroundColor = direction === 'LEFT' ?
+            'rgba(255, 100, 0, 0.9)' : 'rgba(0, 200, 100, 0.9)';
+        audioIndicator.style.transform = 'scale(1.2)';
+        audioIndicator.style.boxShadow = `0 0 15px ${direction === 'LEFT' ? 'orange' : 'lime'}`;
+    }
+}
+
+function endScrubEffect() {
+    isScrubbing = false;
+    scrubDirection = null;
+    targetScrubRate = 1.0;
+
+    console.log(`🎧 SMOOTH SCRUB END - returning to normal speed`);
+}
+
+function updateScrubVisuals(progress) {
+    if (!audioIndicator) return;
+
+    // Pulsing effect during scrubbing
+    const pulse = 1.1 + Math.sin(Date.now() * 0.01) * 0.1;
+    audioIndicator.style.transform = `scale(${pulse})`;
+
+    // Update text with progress indicator
+    const dots = '.'.repeat(Math.floor(progress * 3) + 1);
+    audioIndicator.textContent = scrubDirection === 'LEFT' ?
+        `◀ ${scrubSpeed}x${dots}` : `${scrubSpeed}x ▶${dots}`;
+}
+
 function updateZoomEffects() {
     if (!isPlaying) return;
 
@@ -1015,28 +1107,38 @@ function updateZoomEffects() {
     currentPlaybackRate += (targetPlaybackRate - currentPlaybackRate) * 0.35;
     currentVolume += (targetVolume - currentVolume) * 0.35;
 
-    // Apply effects
+    // Apply effects - combine zoom and scrub effects
     if (backgroundMusic) {
-        const newRate = Math.max(MIN_SLOW_MOTION, Math.min(2.0, currentPlaybackRate));
-        backgroundMusic.playbackRate = newRate;
+        let finalRate;
 
-        // Update visual indicator with DRAMATIC effects
-        if (audioIndicator) {
-            audioIndicator.textContent = `${newRate.toFixed(2)}x`;
+        if (isScrubbing) {
+            // Scrubbing takes priority over zoom effects
+            finalRate = targetScrubRate;
+        } else {
+            // Normal zoom slow motion effects
+            finalRate = Math.max(MIN_SLOW_MOTION, Math.min(2.0, currentPlaybackRate));
+        }
+
+        backgroundMusic.playbackRate = Math.abs(finalRate); // Ensure positive rate
+
+        // Update visual indicator with DRAMATIC effects (only if not scrubbing)
+        if (audioIndicator && !isScrubbing) {
+            const displayRate = Math.abs(finalRate);
+            audioIndicator.textContent = `${displayRate.toFixed(2)}x`;
 
             // EXTREME visual feedback
-            if (newRate < 0.95) {
+            if (displayRate < 0.95) {
                 // Slow motion - MUCH more dramatic colors and effects
-                const slowness = (1.0 - newRate) / (1.0 - MIN_SLOW_MOTION); // 0 to 1
+                const slowness = (1.0 - displayRate) / (1.0 - MIN_SLOW_MOTION); // 0 to 1
 
                 // More dramatic color transitions
-                if (newRate < 0.3) {
+                if (displayRate < 0.3) {
                     // EXTREME slow motion - deep red/purple
                     audioIndicator.style.backgroundColor = `rgba(200, 20, 255, 0.95)`;
                     audioIndicator.style.color = 'white';
                     audioIndicator.style.transform = 'scale(1.2)';
                     audioIndicator.style.boxShadow = '0 0 20px rgba(200, 20, 255, 0.8)';
-                } else if (newRate < 0.6) {
+                } else if (displayRate < 0.6) {
                     // Heavy slow motion - bright purple
                     audioIndicator.style.backgroundColor = `rgba(150, 50, 255, 0.9)`;
                     audioIndicator.style.color = 'white';
@@ -1059,8 +1161,8 @@ function updateZoomEffects() {
         }
 
         // Log significant changes
-        if (Math.abs(newRate - 1.0) > 0.05) {
-            console.log(`SLOW MOTION APPLIED: ${newRate.toFixed(3)}x`);
+        if (Math.abs(finalRate - 1.0) > 0.05) {
+            console.log(`AUDIO EFFECT APPLIED: ${finalRate.toFixed(3)}x ${isScrubbing ? '(SCRUBBING)' : '(SLOW MOTION)'}`);
         }
     }
 
@@ -1099,6 +1201,9 @@ function animate() {
 
   // Update zoom-based audio effects
   updateZoomEffects();
+
+  // Update horizontal panning audio effects (DJ scrubbing)
+  updatePanningEffects();
 
   // Update shader time uniform for animated grain
   const time = Date.now() * 0.001;
