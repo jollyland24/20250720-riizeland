@@ -1,0 +1,16 @@
+// Vertex AI Configuration
+export const VERTEX_AI_CONFIG = {
+    "type": "service_account",
+    "project_id": "idyllic-bloom-474012-s9",
+    "private_key_id": "b7d4264e2211fa229a5e0d7dd6aa0138770da167",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCLude4dy8zg9ol\n+28FuxGekH0iz8ZVAAnJgAmYje3KozRwljMlLPR1gu1uPhoa+zFquBmta5tImWrx\npmVbOpVcFQnZvbIJoWzyz5AwaYGGst9W3N0Hd6w4JF1QzUA4VzkKrPJcS2C3rwf0\nIlyRVP8oNog45XoPiWmWzMPu6yidVXFU9SgrYR7NUdi/aleUgPuKXXo5aEOCG4x8\nvDDFoV2ZsFv6pWS6OY8zXzmyLvEKFj1KxJf22iIwEP31BuvvUnz+5wuxvtDe+C7t\nZwN9TB5gbNw+oMyRVZ/Rhamtl4RKpc5YmUMtKD2xuC+2DuOuBh6EuWhUjfsypamt\nH+31P7JnAgMBAAECggEAEBTwvjuBhEVdu1doHNm+Gmj47iPJ6QibF8UT1aooP1Vv\neLHg6xt0e335Q+ID8S0OMAFGe05SThXSWEPVkJ16iWGmg5gwwKkCuCOprdjG3rEB\nwaakDfL5MHEHCIDHLnTjjNYBAxxt4lZT7QZzbwrAX2l/XkUTOmyPaZrhxkLspsb+\nPeLyAhxTsvmXv3Srg5hLZNMjeg8+lWYvDj/gx1uD0egfQ0T3bQ6sqrbQKw74J1cW\n+Y7mjbSJNHOgDwFiG/+h2xVVVUFXkEcVF5fw+L7cXH9MSYcAdICiF1evf1nKxuzA\ncPQNBClMsF7GgfOhmkIVropy00aw/0PJIdPGWAe3cQKBgQC98enAb51qfKNK8fOl\n1usxlAvA7e0S8LE1Nfslp5MyjsUORYnIK/Op+I8NXOtu+t9oQr2wC8BEWUGk1MGs\nkVQ2D/FBTRTzu1yjRk61TNEyhv3ANvdibffd4sxWsphrB2WZNiySJzaBdvfIIMyL\nUCnzkur1CqQAYTIij1FIjuKgeQKBgQC8UR5YuwpWXMm/jh6ogA+HEJqLz2kcyziS\nP0owX8jko63vwG+Eut15qiZhsGskLKF9r1loQRCatWuEV7YfuSlZrWJQBie3AT1a\nWcgFZsEATWFfIf0KT9tg77c5seHw4pv3LB1Gnjd8B1GQlx7/Ank9Az8dVMpw/pAx\nTGiEweTx3wKBgBVYi2Fh6bne2ecBO9VmSrYeoheDZYIcZH3LXDcGFwe2fbS14d8J\n+W8fjMv+pkKplNO9tF2FZI0JztO8SSughWsx7XXeOL2PT8DVlODRCi14eCnSw4hf\nPVzFMRuJJJHamfNW4DloiLqR6RSngvUhBCXoW9k/4eBdC+pQWt0hmZxZAoGAEZ08\ny2vjUaSoMkSm1Xf0+9svuXgTCuBvUC6fT9sFvW0Z7d0AEVgxMxoZMPYBb4bFLC5k\nnH3Jgc8KWXyiymDVX0/6bCXHPTTeej7/mJG957tVKkLRmk9R48VITBs5WQC5Oetk\naaCO7Aj7Nh0MhynCEVTmaGXv8ZW+Av50oEZKld0CgYEAkMawRBtWDnTb8S3mVgbj\nW+DbRT8Ui7FI9BjXhFRTbf2h+aHIucU+Heos6hex+0picJKbvEg37wa/njVvfMsX\nygxBRAnygS9ek3rYlfgvbfq1IXQLKksmCv8R69bP6Patf8duiGRFP4+w3wCP9r53\nNGegBNI4bIsRxxvVZxFemuU=\n-----END PRIVATE KEY-----\n",
+    "client_email": "service-account@idyllic-bloom-474012-s9.iam.gserviceaccount.com",
+    "client_id": "111926263097729120937",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/service-account%40idyllic-bloom-474012-s9.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+};
+
+export const VERTEX_AI_ENDPOINT = `https://us-central1-aiplatform.googleapis.com/v1/projects/${VERTEX_AI_CONFIG.project_id}/locations/us-central1/publishers/google/models/imagegeneration:predict`;

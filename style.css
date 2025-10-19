@@ -26,34 +26,6 @@
 }
 
 
-/* Modal
-
-.modal {
-    z-index: 888;
-    padding: 1rem;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 85%;
-    max-width: 780px;
-    height: 50%;
-    background-color: hsla(344, 57%, 91%, 0.1);
-    backdrop-filter: blur(10px);
-    color: white;
-    border-radius: 2rem;
-}
-
-.modal-wrapper {
-    padding: 1rem;
-}
-
-.modal-header {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-} */
 
 .members {
     position: fixed;
@@ -125,166 +97,9 @@
     
 }
 
-.gesture-activate {
-    font-size: 1.5rem;
-    background-color: rgb(243, 244, 248);
-    border-radius: 2rem;
-    border: 0px;
-    padding: 1rem;
-}
 
 
 
-/* Camera Modal overlay */
-.modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    z-index: 2000; /* Higher than your existing z-index values */
-    justify-content: center;
-    align-items: center;
-}
-
-.modal-content {
-    background: #000; /* Changed to black for better camera contrast */
-    border-radius: 2rem; /* Matching your existing border-radius style */
-    width: 90vw;
-    height: 60rem;
-    position: relative;
-    overflow: hidden; /* Prevent content from overflowing rounded corners */
-    text-align: center;
-    color: white; /* Changed to white for overlay text */
-}
-
-.close-btn {
-    position: absolute;
-    top: 1rem;
-    right: 1.5rem;
-    background: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
-    border: none;
-    font-size: 2rem;
-    cursor: pointer;
-    color: white; /* Changed to white */
-    width: 3rem;
-    height: 3rem;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s;
-    z-index: 20; /* Ensure it's above the video */
-}
-
-.close-btn:hover {
-    background-color: rgba(0, 0, 0, 0.7);
-}
-
-.video-container {
-    position: absolute; /* Changed to absolute for full coverage */
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden; /* Prevent landmarks from showing outside */
-}
-
-#hand-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 10;
-}
-
-#webcam-video {
-    width: 100%;
-    height: 100%;
-    border-radius: 2rem; /* Match modal border radius */
-    background-color: #000;
-    transform: scaleX(-1);
-    display: block;
-    object-fit: cover; /* Ensure video covers entire area */
-}
-
-.status-message {
-    position: absolute; /* Changed to absolute positioning */
-    bottom: 6rem; /* Position above control buttons */
-    left: 2rem;
-    margin: 0;
-    padding: 1rem 2rem;
-    border-radius: 1rem;
-    font-size: 1rem;
-    font-family: "Doto", sans-serif;
-    z-index: 15; /* Above video but below close button */
-    max-width: 60%;
-    display: none; 
-}
-
-.status-loading {
-    background-color: rgba(30, 144, 255, 0.8);
-    color: white;
-    backdrop-filter: blur(10px);
-}
-
-.status-error {
-    background-color: rgba(220, 53, 69, 0.8);
-    color: white;
-    backdrop-filter: blur(10px);
-}
-
-.status-success {
-    background-color: rgba(40, 167, 69, 0.8);
-    color: white;
-    backdrop-filter: blur(10px);
-}
-
-.control-buttons {
-    position: absolute; /* Changed to absolute positioning */
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-    z-index: 15; /* Above video but below close button */
-}
-
-.control-btn {
-    padding: 1rem 2rem;
-    border: none;
-    border-radius: 2rem; /* Matching your button style */
-    cursor: pointer;
-    font-size: 1rem;
-    font-family: "Doto", sans-serif;
-    transition: all 0.2s;
-    backdrop-filter: blur(10px); /* Add blur effect */
-}
-
-.control-btn.primary {
-    background-color: rgba(25, 118, 210, 0.8);
-    color: white;
-}
-
-.control-btn.primary:hover {
-    background-color: rgba(21, 101, 192, 0.9);
-}
-
-.control-btn.secondary {
-    background-color: rgba(255, 255, 255, 0.2); /* Semi-transparent white */
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.control-btn.secondary:hover {
-    background-color: rgba(255, 255, 255, 0.3);
-}
 
 /* Bottom Controls Layout */
 .bottom-controls {
@@ -391,46 +206,125 @@
     display: none;
 }
 
-/* Polaroid Camera Overlay */
-.polaroid-overlay {
-    display: none;
+/* Camera Overlay */
+.camera-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
+    top: 2rem;
+    left: 2rem;
+    width: 300px;
+    height: 200px;
+    z-index: 1500;
+    display: none;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.camera-container {
+    position: relative;
     width: 100%;
     height: 100%;
-    z-index: 3000;
-    justify-content: center;
-    align-items: center;
-    pointer-events: auto;
-}
-
-.polaroid-camera {
-    position: relative;
+    background: rgba(0, 0, 0, 0.8);
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
 }
 
-.camera-parts {
-    position: relative;
+.camera-close-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
     display: flex;
-    flex-direction: column;
     align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+    backdrop-filter: blur(10px);
 }
 
-.cam-up, .cam-down {
-    display: block;
-    width: 300px;
-    height: auto;
+.camera-close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
 }
 
-.cam-up {
-    z-index: 2;
-    margin-bottom: -5px; /* Slight overlap to connect the parts */
+#camera-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 1rem;
+    transform: scaleX(-1); /* Mirror the video */
 }
 
-.cam-down {
-    z-index: 1;
+.photo-capture-btn {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3rem;
+    height: 3rem;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #ff4444, #cc0000);
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4);
+    z-index: 15;
 }
+
+.photo-capture-btn:hover {
+    transform: translateX(-50%) scale(1.1);
+    box-shadow: 0 6px 20px rgba(255, 68, 68, 0.6);
+}
+
+.photo-capture-btn:active {
+    transform: translateX(-50%) scale(0.95);
+}
+
+.processing-indicator {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    text-align: center;
+    font-family: "Doto", sans-serif;
+    font-size: 0.8rem;
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.spinner {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+

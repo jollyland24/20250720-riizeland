@@ -44,38 +44,15 @@
         </div>
     </div>
 
-    <!-- <div class="control">
-        <button class="gesture-activate">open</button>
-    </div> -->
-
-    <!-- Polaroid Camera Overlay -->
-    <div class="polaroid-overlay" id="polaroid-overlay">
-        <div class="polaroid-camera">
-            <div class="camera-parts">
-                <img src="./cam-up.png" alt="Camera Top" class="cam-up">
-                <img src="./cam-down.png" alt="Camera Bottom" class="cam-down">
-            </div>
-        </div>
-    </div>
-
-    <!-- Simplified Webcam Modal -->
-    <div class="modal-overlay" id="webcam-modal">
-        <div class="modal-content">
-            <button class="close-btn" id="close-modal">&times;</button>
-            <h2>Hand Tracking</h2>
-
-            <div class="status-message status-loading" id="status-message">
-                Click "Start Camera" to begin
-            </div>
-
-            <div class="video-container hidden" id="video-container">
-                <video id="webcam-video" autoplay muted playsinline></video>
-                <canvas id="hand-canvas"></canvas>
-            </div>
-
-            <div class="control-buttons">
-                <button class="control-btn primary" id="start-camera">Start Camera</button>
-                <button class="control-btn secondary hidden" id="stop-camera">Stop Camera</button>
+    <!-- Camera Overlay -->
+    <div class="camera-overlay" id="camera-overlay">
+        <div class="camera-container">
+            <button class="camera-close-btn" id="camera-close-btn">&times;</button>
+            <video id="camera-video" autoplay muted playsinline></video>
+            <button class="photo-capture-btn" id="photo-capture-btn">📸</button>
+            <div class="processing-indicator" id="processing-indicator" style="display: none;">
+                <div class="spinner"></div>
+                <span>Generating AI image...</span>
             </div>
         </div>
     </div>
@@ -91,11 +68,6 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
     
-    <!-- Working MediaPipe Scripts (Older but Stable API) -->
-    <script src="https://unpkg.com/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://unpkg.com/@mediapipe/control_utils/control_utils.js"></script>
-    <script src="https://unpkg.com/@mediapipe/drawing_utils/drawing_utils.js"></script>
-    <script src="https://unpkg.com/@mediapipe/hands/hands.js"></script>
     
     <script type="module" src="./main.js"></script>
 </body>

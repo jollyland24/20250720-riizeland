@@ -1,0 +1,19 @@
+{
+  "prompt": "Using the provided background scene as the exact environment, seamlessly composite the person from the second image into this scene. Place the person naturally within the existing 3D environment, maintaining the exact lighting, colors, and atmosphere of the original background. The person should appear to be standing or sitting naturally in this space without altering the background scene itself.",
+  "requestTimestamp": "2025-10-19T21-37-39-111Z",
+  "modelEndpoint": "https://us-central1-aiplatform.googleapis.com/v1/projects/idyllic-bloom-474012-s9/locations/us-central1/publishers/google/models/imagen-3.0-generate-001:predict",
+  "requestParameters": {
+    "sampleCount": 1,
+    "editSteps": 35,
+    "maskDilation": 0.02,
+    "safetyFilterLevel": "block_some",
+    "personGeneration": "allow_adult",
+    "outputMimeType": "image/jpeg"
+  },
+  "responsePreview": {
+    "success": true,
+    "hasImage": true,
+    "mimeType": "image/png",
+    "imageSizeBytes": 954236
+  }
+}
