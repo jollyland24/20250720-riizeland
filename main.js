@@ -17,6 +17,8 @@ const collectSound = new Audio('./sound_star.wav')
 collectSound.preload = 'auto';
 const changeSound = new Audio('./sound_change.mp3')
 changeSound.preload = 'auto';
+const scratchSound = new Audio('./babyscratch-87371.mp3');
+scratchSound.preload = 'auto';
 
 // Background music controls
 const backgroundMusic = document.getElementById('background-music');
@@ -68,13 +70,18 @@ let azimuthVelocity = 0;
 let lastScrubTime = 0;
 let scrubCooldown = 300; // ms between scrubs to prevent spam
 
-// Smooth scrubbing state
+// Positional scrubbing state
 let isScrubbing = false;
 let scrubDirection = null; // 'LEFT' or 'RIGHT'
-let scrubStartTime = 0;
-let scrubDuration = 200; // 0.2 second scrub effect
-let scrubSpeed = 3.0; // 3x speed during scrubbing
+let scrubSensitivity = 3.0; // How many seconds to jump per unit of movement (reduced from 30.0)
+let scrubSpeed = 3.0; // 3x speed during scrubbing for audio feedback
 let targetScrubRate = 1.0;
+let accumulatedScrubDistance = 0; // Track total scrub movement
+
+// Scratch sound control
+let scratchIntensity = 0; // Current movement intensity
+let maxScratchIntensity = 0; // Peak intensity during current scrub session
+let scratchFadeTimeout = null;
 
 // Audio context for better control (Web Audio API)
 let audioContext = null;
@@ -1093,78 +1100,145 @@ function resetAudioEffects() {
 function updatePanningEffects() {
     if (!isPlaying) return;
 
-    const now = Date.now();
-
     // Get current azimuth angle (horizontal rotation) from OrbitControls
     currentAzimuth = controls.getAzimuthalAngle();
     azimuthVelocity = currentAzimuth - previousAzimuth;
     previousAzimuth = currentAzimuth;
 
-    // Check for significant horizontal movement (DJ scrubbing)
-    if (!isScrubbing && Math.abs(azimuthVelocity) > 0.02 && (now - lastScrubTime) > scrubCooldown) {
-        // Start new scrub effect
-        if (azimuthVelocity < -0.02) {
-            // Drag LEFT = Start smooth rewind
-            startScrubEffect('LEFT');
-        } else if (azimuthVelocity > 0.02) {
-            // Drag RIGHT = Start smooth fast-forward
-            startScrubEffect('RIGHT');
+    // Calculate movement intensity
+    scratchIntensity = Math.abs(azimuthVelocity);
+
+    // Check for horizontal movement (positional scrubbing)
+    if (scratchIntensity > 0.005) {
+        if (!isScrubbing) {
+            // Start scrubbing
+            isScrubbing = true;
+            accumulatedScrubDistance = 0;
+            maxScratchIntensity = 0;
+            console.log('🎧 POSITIONAL SCRUB START');
         }
-        lastScrubTime = now;
-    }
 
-    // Handle ongoing scrub effect
-    if (isScrubbing) {
-        const elapsed = now - scrubStartTime;
-        const progress = elapsed / scrubDuration;
+        // Track maximum intensity for this scrub session
+        maxScratchIntensity = Math.max(maxScratchIntensity, scratchIntensity);
 
-        if (progress >= 1.0) {
-            // End scrub effect
-            endScrubEffect();
+        // Play scratch sound with dynamic volume based on intensity
+        updateScratchSound();
+
+        // Accumulate movement distance
+        accumulatedScrubDistance += azimuthVelocity;
+
+        // Calculate new song position based on movement
+        const timeShift = accumulatedScrubDistance * scrubSensitivity;
+        const currentTime = backgroundMusic.currentTime;
+        const newTime = Math.max(0, Math.min(backgroundMusic.duration || 0, currentTime + timeShift));
+
+        // Actually move the song position
+        backgroundMusic.currentTime = newTime;
+
+        // Reset accumulated distance since we applied it
+        accumulatedScrubDistance = 0;
+
+        // Set playback speed for audio feedback during scrubbing
+        if (azimuthVelocity < 0) {
+            // Moving left (rewinding)
+            scrubDirection = 'LEFT';
+            targetScrubRate = -scrubSpeed; // Reverse playback sound
         } else {
-            // Apply smooth scrub speed
-            targetScrubRate = scrubDirection === 'LEFT' ? -scrubSpeed : scrubSpeed;
-            updateScrubVisuals(progress);
+            // Moving right (fast forwarding)
+            scrubDirection = 'RIGHT';
+            targetScrubRate = scrubSpeed; // Forward playback sound
         }
+
+        updateScrubVisuals();
+
+        // Clear any pending fade timeout
+        if (scratchFadeTimeout) {
+            clearTimeout(scratchFadeTimeout);
+            scratchFadeTimeout = null;
+        }
+
+        console.log(`🎵 SCRUB: ${azimuthVelocity > 0 ? 'RIGHT' : 'LEFT'} - moved to ${newTime.toFixed(1)}s, intensity: ${scratchIntensity.toFixed(3)}`);
+
+    } else if (isScrubbing) {
+        // Movement stopped - fade out scratch sound and end scrubbing
+        startScratchFade();
     }
 }
 
-function startScrubEffect(direction) {
-    isScrubbing = true;
-    scrubDirection = direction;
-    scrubStartTime = Date.now();
+function updateScratchSound() {
+    // Dynamic volume based on movement intensity
+    const volume = Math.min(1.0, scratchIntensity * 50); // Scale intensity to volume
 
-    console.log(`🎧 SMOOTH SCRUB START: ${direction} at ${scrubSpeed}x speed for ${scrubDuration}ms`);
-
-    // Visual feedback for start of scrub
-    if (audioIndicator) {
-        audioIndicator.textContent = direction === 'LEFT' ? `◀ ${scrubSpeed}x` : `${scrubSpeed}x ▶`;
-        audioIndicator.style.backgroundColor = direction === 'LEFT' ?
-            'rgba(255, 100, 0, 0.9)' : 'rgba(0, 200, 100, 0.9)';
-        audioIndicator.style.transform = 'scale(1.2)';
-        audioIndicator.style.boxShadow = `0 0 15px ${direction === 'LEFT' ? 'orange' : 'lime'}`;
+    if (!scratchSound.paused && scratchSound.currentTime > 0) {
+        // Already playing - just adjust volume
+        scratchSound.volume = volume;
+    } else if (volume > 0.1) {
+        // Start playing if movement is significant enough
+        scratchSound.currentTime = 0;
+        scratchSound.volume = volume;
+        scratchSound.play().catch(error => {
+            console.log('Scratch sound playback failed:', error);
+        });
     }
+}
+
+function startScratchFade() {
+    // Fade out the scratch sound over 200ms when movement stops
+    scratchFadeTimeout = setTimeout(() => {
+        if (scratchSound && !scratchSound.paused) {
+            const fadeInterval = setInterval(() => {
+                if (scratchSound.volume > 0.1) {
+                    scratchSound.volume = Math.max(0, scratchSound.volume - 0.1);
+                } else {
+                    scratchSound.pause();
+                    scratchSound.volume = 1.0; // Reset for next time
+                    clearInterval(fadeInterval);
+                }
+            }, 20);
+        }
+        endScrubEffect();
+    }, 200);
 }
 
 function endScrubEffect() {
     isScrubbing = false;
     scrubDirection = null;
     targetScrubRate = 1.0;
+    accumulatedScrubDistance = 0;
+    scratchIntensity = 0;
+    maxScratchIntensity = 0;
 
-    console.log(`🎧 SMOOTH SCRUB END - returning to normal speed`);
+    console.log(`🎧 POSITIONAL SCRUB END - staying at new position, returning to normal speed`);
+
+    // Reset visual indicator
+    if (audioIndicator) {
+        audioIndicator.textContent = '1.00x';
+        audioIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        audioIndicator.style.transform = 'scale(1.0)';
+        audioIndicator.style.boxShadow = 'none';
+    }
 }
 
-function updateScrubVisuals(progress) {
+function updateScrubVisuals() {
     if (!audioIndicator) return;
 
-    // Pulsing effect during scrubbing
-    const pulse = 1.1 + Math.sin(Date.now() * 0.01) * 0.1;
-    audioIndicator.style.transform = `scale(${pulse})`;
+    // Show scrubbing direction and current song time
+    const currentTime = backgroundMusic.currentTime;
+    const totalTime = backgroundMusic.duration || 0;
 
-    // Update text with progress indicator
-    const dots = '.'.repeat(Math.floor(progress * 3) + 1);
-    audioIndicator.textContent = scrubDirection === 'LEFT' ?
-        `◀ ${scrubSpeed}x${dots}` : `${scrubSpeed}x ▶${dots}`;
+    if (scrubDirection === 'LEFT') {
+        audioIndicator.textContent = `◀ ${currentTime.toFixed(1)}s`;
+        audioIndicator.style.backgroundColor = 'rgba(255, 100, 0, 0.9)';
+        audioIndicator.style.boxShadow = '0 0 15px orange';
+    } else {
+        audioIndicator.textContent = `${currentTime.toFixed(1)}s ▶`;
+        audioIndicator.style.backgroundColor = 'rgba(0, 200, 100, 0.9)';
+        audioIndicator.style.boxShadow = '0 0 15px lime';
+    }
+
+    // Pulsing effect during scrubbing
+    const pulse = 1.1 + Math.sin(Date.now() * 0.02) * 0.1;
+    audioIndicator.style.transform = `scale(${pulse})`;
 }
 
 function updateZoomEffects() {
