@@ -26,6 +26,32 @@ const audioIndicator = document.getElementById('audio-indicator');
 
 let isPlaying = false;
 
+// Multiple song system
+const songList = [
+    {
+        name: "RIIZE Odyssey Instrumental",
+        file: "./RIIZE Odyssey Instrumental.mp3"
+    },
+    {
+        name: "RIIZE Bag Bad Back Instrumental",
+        file: "./RIIZE Bag Bad Back Instrumental.mp3"
+    },
+    {
+        name: "RIIZE Ember to Solar Instrumental",
+        file: "./RIIZE Ember to Solar Instrumental.mp3"
+    },
+    {
+        name: "RIIZE Fly Up Instrumental",
+        file: "./RIIZE Fly Up Instrumental.mp3"
+    },
+    {
+        name: "RIIZE Midnight Mirage Instrumental",
+        file: "./RIIZE Midnight Mirage Instrumental.mp3"
+    }
+];
+
+let currentSongIndex = 0;
+
 // Zoom-audio effect variables
 let previousZoom = 0.6; // Initial zoom value
 let currentZoom = 0.6;
@@ -283,6 +309,7 @@ loader.load( './export.glb', function ( glb ) {
      console.log(child.name);
     if(intersectObjectsNames.includes(child.name)){
       intersectObjects.push(child);
+      console.log(`Added ${child.name} to intersectObjects`);
     }
     
     // Store star objects for spinning and collision detection
@@ -309,7 +336,19 @@ loader.load( './export.glb', function ( glb ) {
         tape.instance = child;
         tape.originalPosition = child.position.clone();
         tape.boundingBox = new THREE.Box3();
-        
+
+        // Make sure tape is clickable - traverse its children to add meshes
+        child.traverse((meshChild) => {
+            if (meshChild.isMesh) {
+                console.log(`Found tape mesh: ${meshChild.name}`);
+                // Add all tape meshes to intersect objects for better detection
+                if (!intersectObjects.includes(meshChild)) {
+                    intersectObjects.push(meshChild);
+                    console.log(`Added tape mesh ${meshChild.name} to intersectObjects`);
+                }
+            }
+        });
+
         // Create bounding box helper for tape
         if(boundingBoxes.showHelpers) {
           tape.helper = new THREE.Box3Helper(tape.boundingBox, 0xffff00);
@@ -440,9 +479,8 @@ function showModal(objectName) {
     console.log(`Clicked on: ${objectName}`);
     // You can add specific behavior for different objects here
     if (objectName === "tape") {
-        console.log("Tape clicked!");
-        // Maybe open webcam modal?
-        // webcamModal?.openModal();
+        console.log("Tape clicked! Switching to next song...");
+        switchToNextSong();
     }
 }
 
@@ -468,9 +506,12 @@ function onResize(){
 }
 
 function onClick () {
-    console.log(intersectObject);
+    console.log('Click detected - intersectObject:', intersectObject);
     if(intersectObject !== ""){
+        console.log('Calling showModal with:', intersectObject);
         showModal(intersectObject);
+    } else {
+        console.log('No intersection detected on click');
     }
 }
 
@@ -980,6 +1021,60 @@ function stopMusic() {
     resetAudioEffects();
 }
 
+function switchToNextSong() {
+    const wasPlaying = isPlaying;
+    const currentTime = backgroundMusic.currentTime;
+
+    // Stop current song
+    if (isPlaying) {
+        backgroundMusic.pause();
+    }
+
+    // Move to next song
+    currentSongIndex = (currentSongIndex + 1) % songList.length;
+    const newSong = songList[currentSongIndex];
+
+    // Update audio source
+    backgroundMusic.src = newSong.file;
+    backgroundMusic.load(); // Important: reload the audio element
+
+    // Play sound effect
+    changeSound.currentTime = 0;
+    changeSound.play().catch(error => {
+        console.log('Change sound playback failed:', error);
+    });
+
+    // Visual feedback - show song name temporarily
+    if (audioIndicator) {
+        const shortName = newSong.name.replace('RIIZE ', '').replace(' Instrumental', '');
+        audioIndicator.textContent = shortName;
+        audioIndicator.style.backgroundColor = 'rgba(255, 215, 0, 0.9)'; // Gold color
+        audioIndicator.style.transform = 'scale(1.3)';
+        audioIndicator.style.boxShadow = '0 0 20px gold';
+
+        // Reset visual after delay
+        setTimeout(() => {
+            if (audioIndicator && !isScrubbing && Math.abs(currentPlaybackRate - 1.0) < 0.05) {
+                audioIndicator.textContent = '1.00x';
+                audioIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                audioIndicator.style.transform = 'scale(1.0)';
+                audioIndicator.style.boxShadow = 'none';
+            }
+        }, 2000);
+    }
+
+    // Resume playing if it was playing before
+    if (wasPlaying) {
+        backgroundMusic.addEventListener('loadeddata', () => {
+            backgroundMusic.play().catch(error => {
+                console.log('Audio playback failed:', error);
+            });
+        }, { once: true });
+    }
+
+    console.log(`🎵 Switched to: ${newSong.name}`);
+}
+
 function resetAudioEffects() {
     currentPlaybackRate = 1.0;
     currentVolume = 1.0;
@@ -1185,10 +1280,14 @@ function animate() {
   }
 
   const intersects = raycaster.intersectObjects( intersectObjects );
-    
+
   if (intersects.length > 0) {
-    document.body.style.cursor = "default";
+    document.body.style.cursor = "pointer";
     intersectObject = intersects[0].object.parent.name;
+    // Debug logging (only occasionally to avoid spam)
+    if (Math.random() < 0.01) {
+      console.log('Hovering over:', intersectObject);
+    }
   } else {
     document.body.style.cursor = "default";
     intersectObject = "";
