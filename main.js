@@ -18,6 +18,13 @@ collectSound.preload = 'auto';
 const changeSound = new Audio('./sound_change.mp3')
 changeSound.preload = 'auto';
 
+// Background music controls
+const backgroundMusic = document.getElementById('background-music');
+const playBtn = document.getElementById('play-btn');
+const stopBtn = document.getElementById('stop-btn');
+
+let isPlaying = false;
+
 
 const characterModels = {
     totalStars: 5, // Total number of stars to collect
@@ -885,8 +892,33 @@ function onKeyDown(event) {
 
 window.addEventListener("resize", onResize);
 window.addEventListener("click", onClick);
-window.addEventListener('pointermove', onPointerMove); 
-window.addEventListener("keydown", onKeyDown)
+window.addEventListener('pointermove', onPointerMove);
+window.addEventListener("keydown", onKeyDown);
+
+// Audio control event listeners
+playBtn.addEventListener('click', togglePlayStop);
+stopBtn.addEventListener('click', stopMusic);
+
+function togglePlayStop() {
+    if (isPlaying) {
+        backgroundMusic.pause();
+        playBtn.textContent = '▶';
+        isPlaying = false;
+    } else {
+        backgroundMusic.play().catch(error => {
+            console.log('Audio playback failed:', error);
+        });
+        playBtn.textContent = '⏸';
+        isPlaying = true;
+    }
+}
+
+function stopMusic() {
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;
+    playBtn.textContent = '▶';
+    isPlaying = false;
+}
 
 
 
