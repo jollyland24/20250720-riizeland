@@ -1,0 +1,12 @@
+{
+  "prompt": "Merge the person from the first image into the floating island scene from the second image. Create a character that looks like the person, placed on the islands in the scene. The character should blend naturally with the environment and any existing characters or objects in the scene.",
+  "requestTimestamp": "2025-11-29T11-35-55-731Z",
+  "modelEndpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
+  "apiModel": "gemini-2.5-flash-image",
+  "responsePreview": {
+    "success": true,
+    "hasImage": true,
+    "mimeType": "image/jpeg",
+    "imageSizeBytes": 1807876
+  }
+}
