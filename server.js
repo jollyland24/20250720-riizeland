@@ -196,16 +196,8 @@ app.post('/api/merge-images', upload.fields([
         // Gemini 2.5 Flash endpoint
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent`;
 
-        // Enhanced character-based image editing prompt with pixel aesthetic and interaction
-        const prompt = `Create a pixelated 8-bit style character based on the person in the user photo, placed in this floating island scene. The character should:
-        - Look like the person from the reference photo but in retro pixel art style (like classic video games)
-        - Have chunky, blocky pixels and limited color palette for authentic 8-bit aesthetic
-        - Be positioned ON or NEAR the floating islands, not just floating in empty sky
-        - Appear to be exploring, jumping between, or landing on the island platforms
-        - Be properly sized to interact with the island environment (not tiny, not huge)
-        - Have clear pixel outlines and be reminiscent of classic platformer game characters
-
-        IMPORTANT: Keep ALL existing elements in the scene exactly as they are (including any characters, objects, cassette tapes, stars, etc.). If there are other characters or objects present, make the new user character appear to be interacting with them - they could be exploring together, approaching each other, or engaging in the same activity. The goal is to add the user character as if they belong in this world alongside whatever is already there.`;
+        // Simplified prompt for better success rate with Gemini
+        const prompt = `Merge the person from the first image into the floating island scene from the second image. Create a character that looks like the person, placed on the islands in the scene. The character should blend naturally with the environment and any existing characters or objects in the scene.`;
 
         // Gemini API payload format - include both user photo and scene
         const payload = {
@@ -293,18 +285,60 @@ app.post('/api/merge-images', upload.fields([
 
             // Handle NO_IMAGE response
             if (candidate.finishReason === 'NO_IMAGE') {
-                console.log('🚫 Gemini refused to generate image - falling back to user photo');
+                console.log('🚫 Gemini refused to generate image (NO_IMAGE) - falling back to user photo');
                 console.log('📋 This might be due to safety filters or content policy');
 
                 const userPhotoBase64 = userPhotoBuffer.toString('base64');
-                return res.json({
-                    success: true,
-                    image: userPhotoBase64,
-                    mimeType: 'image/jpeg',
-                    message: 'Fallback mode: Gemini refused image generation (safety filters)',
-                    fallback: true,
-                    debugFolder: debugFolder
-                });
+                console.log('📤 Sending fallback response with user photo (' + userPhotoBase64.length + ' bytes)...');
+                try {
+                    res.json({
+                        success: true,
+                        image: userPhotoBase64,
+                        mimeType: 'image/jpeg',
+                        message: 'Fallback mode: Gemini refused image generation (safety filters)',
+                        fallback: true,
+                        debugFolder: debugFolder
+                    });
+                    console.log('✅ Fallback response sent successfully!');
+                    return;
+                } catch (sendError) {
+                    console.error('❌ Error sending fallback response:', sendError);
+                    res.status(500).json({
+                        error: 'Failed to send fallback image',
+                        message: sendError.message
+                    });
+                    return;
+                }
+            }
+
+            // Handle IMAGE_OTHER response (model couldn't generate image based on prompt)
+            if (candidate.finishReason === 'IMAGE_OTHER') {
+                console.log('🚫 Gemini could not generate image (IMAGE_OTHER) - falling back to user photo');
+                console.log('📋 Reason:', candidate.finishMessage);
+                console.log('💡 Tip: Try a different prompt or image that better describes the desired output');
+
+                const userPhotoBase64 = userPhotoBuffer.toString('base64');
+                console.log('📤 Sending fallback response with user photo (' + userPhotoBase64.length + ' bytes)...');
+                try {
+                    res.json({
+                        success: true,
+                        image: userPhotoBase64,
+                        mimeType: 'image/jpeg',
+                        message: 'Fallback mode: Gemini could not generate image with this prompt',
+                        fallback: true,
+                        debugFolder: debugFolder,
+                        geminiMessage: candidate.finishMessage
+                    });
+                    console.log('✅ Fallback response sent successfully!');
+                    return;
+                } catch (sendError) {
+                    console.error('❌ Error sending fallback response:', sendError);
+                    res.status(500).json({
+                        error: 'Failed to send fallback image',
+                        message: sendError.message
+                    });
+                    return;
+                }
             }
 
             const content = candidate.content;
@@ -374,12 +408,22 @@ app.post('/api/merge-images', upload.fields([
                 fs.writeFileSync(`${debugFolder}/00-debug-info.json`, JSON.stringify(debugInfo, null, 2));
 
                 // Return the generated image
-                res.json({
-                    success: true,
-                    image: generatedImageData,
-                    mimeType: 'image/jpeg',
-                    debugFolder: debugFolder
-                });
+                console.log('📤 About to send response with image data...');
+                try {
+                    res.json({
+                        success: true,
+                        image: generatedImageData,
+                        mimeType: 'image/jpeg',
+                        debugFolder: debugFolder
+                    });
+                    console.log('✅ Response sent successfully!');
+                } catch (sendError) {
+                    console.error('❌ Error sending response:', sendError);
+                    res.status(500).json({
+                        error: 'Failed to send image',
+                        message: sendError.message
+                    });
+                }
             } else {
                 throw new Error('No image found in Gemini API response');
             }

@@ -4,6 +4,75 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+// Persistent debug logging (survives page reloads)
+const debugLogs = [];
+
+function addDebugLog(message) {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    debugLogs.push(logEntry);
+    console.log(logEntry);
+
+    // ALWAYS log to console for debugging
+    console.log('DEBUG LOG:', message);
+
+    // Save to BOTH localStorage and sessionStorage for maximum persistence
+    try {
+        // sessionStorage persists across page reloads in the same session
+        const existingLogs = sessionStorage.getItem('photoDebugLogsSession') ? JSON.parse(sessionStorage.getItem('photoDebugLogsSession')) : [];
+        existingLogs.push(logEntry);
+        sessionStorage.setItem('photoDebugLogsSession', JSON.stringify(existingLogs));
+
+        // Also save to localStorage
+        localStorage.setItem('photoDebugLogs', JSON.stringify(debugLogs));
+        console.log('Saved to both storages, total logs:', debugLogs.length);
+    } catch (e) {
+        console.error('Failed to save logs:', e);
+    }
+}
+
+// Check if we have logs from a previous reload
+window.addEventListener('DOMContentLoaded', () => {
+    try {
+        // Check sessionStorage first (should have more recent logs)
+        const sessionLogs = sessionStorage.getItem('photoDebugLogsSession');
+        const localLogs = localStorage.getItem('photoDebugLogs');
+
+        const logsToShow = sessionLogs ? JSON.parse(sessionLogs) : (localLogs ? JSON.parse(localLogs) : null);
+
+        if (logsToShow && logsToShow.length > 0) {
+            console.log('=== LOGS FROM PREVIOUS ATTEMPT ===');
+            logsToShow.forEach(log => console.log(log));
+            console.log('=== END PREVIOUS LOGS ===');
+            console.log('Total logs captured:', logsToShow.length);
+            // Clear after displaying
+            sessionStorage.removeItem('photoDebugLogsSession');
+            localStorage.removeItem('photoDebugLogs');
+        }
+    } catch (e) {
+        console.error('Error loading previous logs:', e);
+    }
+});
+
+// Global error handlers to catch unhandled errors
+window.addEventListener('error', (event) => {
+    const errorMsg = `🔴 ERROR: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`;
+    addDebugLog(errorMsg);
+    console.error('Stack:', event.error?.stack);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    const errorMsg = `🔴 UNHANDLED REJECTION: ${event.reason}`;
+    addDebugLog(errorMsg);
+    event.preventDefault(); // Prevent page reload for unhandled rejections
+});
+
+// Monitor page unloads
+window.addEventListener('beforeunload', (event) => {
+    addDebugLog('⚠️ Page is about to unload/reload');
+});
+
 // Backend API configuration
 const BACKEND_URL = 'http://localhost:3001';
 
@@ -988,29 +1057,67 @@ let cameraStream = null;
 let isCameraActive = false;
 let isProcessing = false;
 
-cameraBtn.addEventListener('click', () => {
-    if (!isCameraActive) {
-        startCamera();
-    } else {
+// Add safety checks before attaching event listeners
+if (!cameraBtn) {
+    addDebugLog('❌ ERROR: cameraBtn element not found!');
+} else {
+    cameraBtn.addEventListener('click', (e) => {
+        console.log('CAMERA BUTTON CLICKED');
+        addDebugLog('📷 Camera button clicked! isCameraActive=' + isCameraActive);
+        try {
+            if (!isCameraActive) {
+                addDebugLog('Starting camera...');
+                startCamera();
+            } else {
+                addDebugLog('Stopping camera...');
+                stopCamera();
+            }
+        } catch (clickError) {
+            addDebugLog('❌ Error in camera button click: ' + clickError.message);
+            console.error('Camera button error:', clickError);
+        }
+    });
+    addDebugLog('✅ Camera button event listener attached');
+}
+
+if (!cameraCloseBtn) {
+    addDebugLog('❌ ERROR: cameraCloseBtn element not found!');
+} else {
+    cameraCloseBtn.addEventListener('click', () => {
         stopCamera();
-    }
-});
+    });
+    addDebugLog('✅ Camera close button event listener attached');
+}
 
-cameraCloseBtn.addEventListener('click', () => {
-    stopCamera();
-});
+if (!photoCaptureBtn) {
+    addDebugLog('❌ ERROR: photoCaptureBtn element not found!');
+} else {
+    photoCaptureBtn.addEventListener('click', async (e) => {
+        console.log('CAPTURE BUTTON CLICKED');
+        addDebugLog('📸 Capture button clicked! isCameraActive=' + isCameraActive + ', isProcessing=' + isProcessing);
 
-photoCaptureBtn.addEventListener('click', () => {
-    if (isCameraActive && !isProcessing) {
-        captureAndProcessPhoto();
-    }
-});
+        try {
+            if (isCameraActive && !isProcessing) {
+                addDebugLog('✅ Conditions met, calling captureAndProcessPhoto()');
+                await captureAndProcessPhoto();
+            } else {
+                addDebugLog('❌ Capture blocked: isCameraActive=' + isCameraActive + ', isProcessing=' + isProcessing);
+            }
+        } catch (clickError) {
+            addDebugLog('❌ Error in capture button click: ' + clickError.message);
+            console.error('Capture button error:', clickError);
+        }
+    });
+    addDebugLog('✅ Photo capture button event listener attached');
+}
 
 async function startCamera() {
     try {
+        addDebugLog('startCamera: Showing camera overlay');
         cameraOverlay.style.display = 'block';
 
         // Request camera access
+        addDebugLog('startCamera: Requesting camera access...');
         cameraStream = await navigator.mediaDevices.getUserMedia({
             video: {
                 width: { ideal: 640 },
@@ -1020,17 +1127,20 @@ async function startCamera() {
             audio: false
         });
 
+        addDebugLog('startCamera: Camera stream received');
         cameraVideo.srcObject = cameraStream;
         isCameraActive = true;
+        addDebugLog('startCamera: Camera is now active (isCameraActive=' + isCameraActive + ')');
 
         // Update camera button appearance
         cameraBtn.style.backgroundColor = 'rgba(255, 100, 100, 0.8)';
         cameraBtn.textContent = '📹';
 
-        console.log('Camera started successfully');
+        addDebugLog('✅ Camera started successfully');
 
     } catch (error) {
-        console.error('Camera error:', error);
+        addDebugLog('❌ Camera error: ' + error.message);
+        console.error('Camera error details:', error);
 
         // Hide overlay after 3 seconds if camera fails
         setTimeout(() => {
@@ -1042,9 +1152,11 @@ async function startCamera() {
 }
 
 function stopCamera() {
+    addDebugLog('stopCamera: Stopping camera stream');
     if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
         cameraStream = null;
+        addDebugLog('stopCamera: Stream tracks stopped');
     }
 
     cameraVideo.srcObject = null;
@@ -1059,7 +1171,7 @@ function stopCamera() {
     // Hide processing indicator
     processingIndicator.style.display = 'none';
 
-    console.log('Camera stopped');
+    addDebugLog('✅ Camera stopped');
 }
 
 // Close camera with Escape key
@@ -1079,26 +1191,45 @@ async function captureAndProcessPhoto() {
 
     try {
         // Capture user photo
+        addDebugLog('Step 1: Capturing user photo...');
         const userPhotoBlob = await captureUserPhoto();
+        addDebugLog('✅ User photo captured: ' + userPhotoBlob.size + ' bytes');
 
         // Capture scene background
+        addDebugLog('Step 2: Capturing scene background...');
         const scenePhotoBlob = await captureSceneBackground();
+        addDebugLog('✅ Scene background captured: ' + scenePhotoBlob.size + ' bytes');
 
         // Send to Vertex AI for processing
+        addDebugLog('Step 3: Sending to backend for AI processing...');
         const mergedImageBlob = await processWithVertexAI(userPhotoBlob, scenePhotoBlob);
+        addDebugLog('✅ AI processing completed: ' + mergedImageBlob.size + ' bytes');
 
         // Display the result
+        addDebugLog('Step 4: Displaying merged image...');
         await displayMergedImage(mergedImageBlob);
+        addDebugLog('✅ Image displayed successfully');
 
-        console.log('Photo processing completed successfully');
+        addDebugLog('Photo processing completed successfully');
 
     } catch (error) {
-        console.error('Photo processing error:', error);
-        alert('Failed to process photo. Please try again.');
+        addDebugLog('❌ Photo processing error: ' + error.message);
+        addDebugLog('Error stack: ' + error.stack);
+        console.error('Full error object:', error);
+        alert('Failed to process photo. Error: ' + error.message);
     } finally {
-        isProcessing = false;
-        photoCaptureBtn.style.display = 'flex';
-        processingIndicator.style.display = 'none';
+        try {
+            isProcessing = false;
+            photoCaptureBtn.style.display = 'flex';
+            processingIndicator.style.display = 'none';
+
+            // Auto-stop camera after photo is processed
+            addDebugLog('Auto-stopping camera after photo processing');
+            stopCamera();
+            addDebugLog('✅ Camera stopped');
+        } catch (cleanupError) {
+            addDebugLog('❌ Error during cleanup: ' + cleanupError.message);
+        }
     }
 }
 
@@ -1226,7 +1357,7 @@ async function captureSceneBackground() {
 
 async function processWithVertexAI(userPhotoBlob, scenePhotoBlob) {
     try {
-        console.log('Sending images to backend for AI processing...');
+        addDebugLog('Sending images to backend for AI processing...');
 
         // Create FormData for the backend request
         const formData = new FormData();
@@ -1239,20 +1370,24 @@ async function processWithVertexAI(userPhotoBlob, scenePhotoBlob) {
             body: formData
         });
 
+        addDebugLog('Response received: ' + response.status + ' ' + response.statusText);
+
         if (!response.ok) {
             // Try the simple endpoint as fallback
-            console.log('Primary endpoint failed, trying simple endpoint...');
+            addDebugLog('Primary endpoint failed (status ' + response.status + '), trying simple endpoint...');
             const fallbackResponse = await fetch(`${BACKEND_URL}/api/merge-images-simple`, {
                 method: 'POST',
                 body: formData
             });
+
+            addDebugLog('Fallback response received: ' + fallbackResponse.status);
 
             if (!fallbackResponse.ok) {
                 throw new Error(`Backend request failed: ${fallbackResponse.status}`);
             }
 
             const fallbackResult = await fallbackResponse.json();
-            console.log('Simple merge completed:', fallbackResult.message);
+            addDebugLog('Simple merge completed: ' + fallbackResult.message);
 
             // Convert base64 back to blob
             const imageBytes = atob(fallbackResult.image);
@@ -1264,28 +1399,49 @@ async function processWithVertexAI(userPhotoBlob, scenePhotoBlob) {
             return new Blob([imageArray], { type: fallbackResult.mimeType || 'image/jpeg' });
         }
 
-        const result = await response.json();
+        addDebugLog('Parsing response JSON...');
+        let result;
+        try {
+            result = await response.json();
+            addDebugLog('Response JSON parsed successfully');
+        } catch (parseError) {
+            addDebugLog('❌ Error parsing JSON: ' + parseError.message);
+            addDebugLog('Response text: ' + (await response.text()).substring(0, 200));
+            throw parseError;
+        }
+
+        addDebugLog('Response data: success=' + result.success + ', hasImage=' + !!result.image);
 
         if (!result.success || !result.image) {
-            throw new Error('Invalid response from backend');
+            addDebugLog('⚠️ Response missing success or image field');
+            throw new Error('Invalid response from backend: ' + JSON.stringify(result));
         }
 
-        console.log('AI merge completed successfully!');
+        addDebugLog('✅ AI merge completed successfully!');
 
         // Convert base64 back to blob
-        const imageBytes = atob(result.image);
-        const imageArray = new Uint8Array(imageBytes.length);
-        for (let i = 0; i < imageBytes.length; i++) {
-            imageArray[i] = imageBytes.charCodeAt(i);
+        addDebugLog('Converting base64 to blob, data length: ' + result.image.length);
+        try {
+            const imageBytes = atob(result.image);
+            const imageArray = new Uint8Array(imageBytes.length);
+            for (let i = 0; i < imageBytes.length; i++) {
+                imageArray[i] = imageBytes.charCodeAt(i);
+            }
+
+            const blob = new Blob([imageArray], { type: result.mimeType || 'image/jpeg' });
+            addDebugLog('✅ Blob created successfully: ' + blob.size + ' bytes');
+            return blob;
+        } catch (blobError) {
+            addDebugLog('❌ Error creating blob: ' + blobError.message);
+            throw blobError;
         }
 
-        return new Blob([imageArray], { type: result.mimeType || 'image/jpeg' });
-
     } catch (error) {
-        console.error('Backend processing error:', error);
+        addDebugLog('❌ Backend processing error: ' + error.message);
+        addDebugLog('Error details: ' + error.message);
 
         // Fallback: return user photo if backend fails
-        console.log('Using fallback: returning user photo');
+        addDebugLog('⚠️ Using fallback: returning user photo');
         return userPhotoBlob;
     }
 }
@@ -1299,70 +1455,120 @@ async function blobToBase64(blob) {
 }
 
 async function displayMergedImage(imageBlob) {
-    // Create a temporary image element to show the result
-    const img = document.createElement('img');
-    img.src = URL.createObjectURL(imageBlob);
-    img.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        max-width: 80vw;
-        max-height: 80vh;
-        border-radius: 1rem;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        z-index: 3000;
-        border: 3px solid white;
-    `;
+    addDebugLog('displayMergedImage called with blob size: ' + imageBlob.size);
 
-    // Create overlay
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 2999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    `;
-
-    // Add close button
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.style.cssText = `
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        width: 3rem;
-        height: 3rem;
-        border: none;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.9);
-        font-size: 1.5rem;
-        cursor: pointer;
-        z-index: 3001;
-    `;
-
-    closeBtn.addEventListener('click', () => {
-        document.body.removeChild(overlay);
-        URL.revokeObjectURL(img.src);
-    });
-
-    overlay.appendChild(img);
-    overlay.appendChild(closeBtn);
-    document.body.appendChild(overlay);
-
-    // Auto-close after 10 seconds
-    setTimeout(() => {
-        if (document.body.contains(overlay)) {
-            document.body.removeChild(overlay);
-            URL.revokeObjectURL(img.src);
+    try {
+        // Wait for DOM to be ready
+        if (!document.body) {
+            addDebugLog('⚠️ Waiting for document.body to be available...');
+            await new Promise(resolve => {
+                if (document.body) {
+                    resolve();
+                } else {
+                    window.addEventListener('DOMContentLoaded', resolve, { once: true });
+                }
+            });
+            addDebugLog('✅ Document.body is now available');
         }
-    }, 10000);
+
+        // Create a temporary image element to show the result
+        const img = document.createElement('img');
+        addDebugLog('Image element created');
+
+        img.src = URL.createObjectURL(imageBlob);
+        addDebugLog('Object URL created: ' + img.src);
+
+        img.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 80vw;
+            max-height: 80vh;
+            border-radius: 1rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            z-index: 3000;
+            border: 3px solid white;
+        `;
+        addDebugLog('Image styles applied');
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        overlay.id = 'photo-overlay-' + Date.now();
+        addDebugLog('Overlay created with id: ' + overlay.id);
+
+        // Add close button
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 3rem;
+            height: 3rem;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 3001;
+        `;
+        addDebugLog('Close button created');
+
+        closeBtn.addEventListener('click', () => {
+            addDebugLog('Close button clicked, removing overlay');
+            try {
+                document.body.removeChild(overlay);
+                URL.revokeObjectURL(img.src);
+                addDebugLog('Overlay removed successfully');
+            } catch (e) {
+                addDebugLog('Error removing overlay: ' + e.message);
+            }
+        });
+
+        overlay.appendChild(img);
+        overlay.appendChild(closeBtn);
+        addDebugLog('Elements appended to overlay');
+
+        // Check if document.body exists before appending
+        if (!document.body) {
+            addDebugLog('❌ ERROR: document.body is null!');
+            throw new Error('document.body is not available');
+        }
+
+        document.body.appendChild(overlay);
+        addDebugLog('✅ Overlay appended to body - image should now be visible');
+        addDebugLog('Overlay element in DOM: ' + document.getElementById(overlay.id) ? 'YES' : 'NO');
+
+        // Auto-close after 10 seconds
+        setTimeout(() => {
+            const overlayStillExists = document.body.contains(overlay);
+            addDebugLog('Auto-close check: overlay exists in DOM = ' + overlayStillExists);
+
+            if (overlayStillExists) {
+                addDebugLog('Auto-closing image modal after 10 seconds');
+                document.body.removeChild(overlay);
+                URL.revokeObjectURL(img.src);
+            }
+        }, 10000);
+
+    } catch (error) {
+        addDebugLog('❌ Error in displayMergedImage: ' + error.message);
+        addDebugLog('Stack: ' + error.stack);
+        throw error;
+    }
 }
 
 function initAudioContext() {
