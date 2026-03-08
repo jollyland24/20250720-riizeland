@@ -352,6 +352,21 @@
   animation: trackFade 3s ease forwards;
 }
 
+.title-overlay {
+  animation: titleFade 4s ease forwards;
+}
+
+@keyframes titleFade {
+  0%   { opacity: 0; transform: translate(-50%, -48%); }
+  10%  { opacity: 1; transform: translate(-50%, -50%); }
+  78%  { opacity: 1; transform: translate(-50%, -50%); }
+  83%  { opacity: 0; }
+  88%  { opacity: 1; }
+  93%  { opacity: 0; }
+  97%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -52%); }
+}
+
 @keyframes trackFade {
   0%   { opacity: 0; transform: translate(-50%, -48%); }
   15%  { opacity: 1; transform: translate(-50%, -50%); }
