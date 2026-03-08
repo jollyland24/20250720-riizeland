@@ -311,9 +311,7 @@ app.post('/api/merge-images-simple', upload.fields([
                 error: 'Both userPhoto and scenePhoto are required'
             });
         }
-
-        // For demo purposes, just return the user photo
-        // In production, you could use a different AI service or image processing
+        // For demo purposes, just return the user photo, in the future, could improve it by applying a simple overlay or filter
         const userPhotoBuffer = req.files.userPhoto[0].buffer;
         const userPhotoBase64 = userPhotoBuffer.toString('base64');
 
@@ -335,6 +333,7 @@ app.post('/api/merge-images-simple', upload.fields([
         });
     }
 });
+
 
 // Start server
 app.listen(PORT, () => {
