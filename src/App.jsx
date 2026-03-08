@@ -23,6 +23,7 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(null);
   const trackTimerRef = useRef(null);
+  const [showTitle, setShowTitle] = useState(true);
 
   const threeRef = useRef();      // ThreeCanvas imperative handle
   const videoRef = useRef();      // CameraOverlay <video> element
@@ -138,6 +139,12 @@ export default function App() {
         onCapture={handleCapture}
         onClose={handleCloseCamera}
       />
+
+      {showTitle && (
+        <div className="track-overlay title-overlay" onAnimationEnd={() => setShowTitle(false)}>
+          RIIZE<br />LAND
+        </div>
+      )}
 
       {currentTrack && (
         <div className="track-overlay" key={currentTrack}>
