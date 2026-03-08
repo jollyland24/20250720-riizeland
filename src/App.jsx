@@ -129,7 +129,7 @@ export default function App() {
             onClick={handleCameraToggle}
             style={isCameraActive ? { backgroundColor: 'rgba(255, 100, 100, 0.8)' } : {}}
           >
-            <Camera size={20} weight={isCameraActive ? "fill" : "regular"} />
+            <Camera size={20} weight="fill" />
           </button>
           <button className="control-btn view-toggle" onClick={handleViewToggle}>
             {currentView === 'explore'
