@@ -6,7 +6,7 @@ import AudioControls from './components/AudioControls.jsx';
 import MergedImageModal from './components/MergedImageModal.jsx';
 
 const initialMembers = [
-  { visible: true,  opacity: 1,   clickable: false }, // member0 (simplehead) — always shown
+  { visible: true,  opacity: 1,   clickable: false }, // member0 (name is simplehead...but it is actually wonbin)
   { visible: false, opacity: 0.3, clickable: false }, // member1 (sungchan)
   { visible: false, opacity: 0.3, clickable: false }, // member2 (eunseok)
   { visible: false, opacity: 0.3, clickable: false }, // member3 (shotaro)
