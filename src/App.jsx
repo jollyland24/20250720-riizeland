@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { Camera } from "@phosphor-icons/react";
 import ThreeCanvas from './components/ThreeCanvas.jsx';
 import MemberSelector from './components/MemberSelector.jsx';
 import CameraOverlay from './components/CameraOverlay.jsx';
@@ -20,6 +21,8 @@ export default function App() {
   const [mergedImageUrl, setMergedImageUrl] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentTrack, setCurrentTrack] = useState(null);
+  const trackTimerRef = useRef(null);
 
   const threeRef = useRef();      // ThreeCanvas imperative handle
   const videoRef = useRef();      // CameraOverlay <video> element
@@ -55,6 +58,12 @@ export default function App() {
     setIsPlaying(playing);
   }, []);
 
+  const handleSongChange = useCallback((name) => {
+    setCurrentTrack(name);
+    if (trackTimerRef.current) clearTimeout(trackTimerRef.current);
+    trackTimerRef.current = setTimeout(() => setCurrentTrack(null), 3000);
+  }, []);
+
   // ── User interactions ────────────────────────────────────────────────────
 
   const handleMemberClick = useCallback((modelName) => {
@@ -88,7 +97,7 @@ export default function App() {
   }, [mergedImageUrl]);
 
   const handlePlay = () => threeRef.current?.togglePlay();
-  const handleStop = () => threeRef.current?.stop();
+  const handleNextSong = () => threeRef.current?.nextSong();
 
   return (
     <>
@@ -98,6 +107,7 @@ export default function App() {
         onAllMembersUnlocked={handleAllMembersUnlocked}
         onAudioIndicatorUpdate={handleAudioIndicatorUpdate}
         onPlayStateChange={handlePlayStateChange}
+        onSongChange={handleSongChange}
       />
 
       <MemberSelector members={members} onMemberClick={handleMemberClick} />
@@ -110,14 +120,14 @@ export default function App() {
             onClick={handleCameraToggle}
             style={isCameraActive ? { backgroundColor: 'rgba(255, 100, 100, 0.8)' } : {}}
           >
-            {isCameraActive ? '📹' : '📷'}
+            <Camera size={20} weight={isCameraActive ? "fill" : "regular"} />
           </button>
         </div>
         <AudioControls
           isPlaying={isPlaying}
           indicatorRef={audioIndicatorRef}
           onPlay={handlePlay}
-          onStop={handleStop}
+          onNextSong={handleNextSong}
         />
       </div>
 
@@ -128,6 +138,12 @@ export default function App() {
         onCapture={handleCapture}
         onClose={handleCloseCamera}
       />
+
+      {currentTrack && (
+        <div className="track-overlay" key={currentTrack}>
+          {currentTrack}
+        </div>
+      )}
 
       {mergedImageUrl && (
         <MergedImageModal imageUrl={mergedImageUrl} onClose={handleCloseMergedImage} />

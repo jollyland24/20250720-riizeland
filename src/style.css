@@ -126,7 +126,7 @@
     height: 3.5rem;
     border: none;
     border-radius: 50%;
-    background-color: rgba(143, 173, 255, 0.8);
+    background-color: rgba(40, 20, 80, 0.85);
     color: white;
     font-size: 1.5rem;
     cursor: pointer;
@@ -139,7 +139,7 @@
 }
 
 .control-btn.camera:hover {
-    background-color: rgba(143, 173, 255, 1);
+    background-color: rgba(40, 20, 80, 1);
     transform: scale(1.1);
 }
 
@@ -178,7 +178,7 @@
     height: 3rem;
     border: none;
     border-radius: 50%;
-    background-color: rgba(143, 173, 255, 0.8);
+    background-color: rgba(40, 20, 80, 0.85);
     color: white;
     font-size: 1.2rem;
     cursor: pointer;
@@ -191,7 +191,7 @@
 }
 
 .audio-btn:hover {
-    background-color: rgba(143, 173, 255, 1);
+    background-color: rgba(40, 20, 80, 1);
     transform: scale(1.1);
 }
 
@@ -260,6 +260,11 @@
     object-fit: cover;
     border-radius: 1rem;
     transform: scaleX(-1); /* Mirror the video */
+    transition: filter 0.4s ease;
+}
+
+#camera-video.processing {
+    filter: blur(8px);
 }
 
 .photo-capture-btn {
@@ -302,8 +307,9 @@
     padding: 0.75rem;
     border-radius: 0.5rem;
     text-align: center;
-    font-family: "Doto", sans-serif;
-    font-size: 0.8rem;
+    font-family: "Arial Narrow", Arial, sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.05em;
     backdrop-filter: blur(10px);
     display: flex;
     align-items: center;
@@ -323,6 +329,38 @@
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Track name overlay */
+.track-overlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 95vw;
+  font-size: clamp(6rem, 22vw, 20rem);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-weight: 400;
+  color: #e8ff00;
+  text-align: center;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  z-index: 2000;
+  mix-blend-mode: difference;
+  animation: trackFade 3s ease forwards;
+}
+
+@keyframes trackFade {
+  0%   { opacity: 0; transform: translate(-50%, -48%); }
+  15%  { opacity: 1; transform: translate(-50%, -50%); }
+  75%  { opacity: 1; transform: translate(-50%, -50%); }
+  80%  { opacity: 0; }
+  85%  { opacity: 1; }
+  90%  { opacity: 0; }
+  95%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -52%); }
 }
 
 /* Hide UI elements during Three.js scene capture */

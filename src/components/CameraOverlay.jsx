@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useRef } from 'react';
+import { Camera, X } from "@phosphor-icons/react";
 
 const CameraOverlay = forwardRef(function CameraOverlay(
   { isActive, isProcessing, onCapture, onClose },
@@ -46,9 +47,9 @@ const CameraOverlay = forwardRef(function CameraOverlay(
     >
       <div className="camera-container">
         <button className="camera-close-btn" id="camera-close-btn" onClick={onClose}>
-          &times;
+          <X size={16} />
         </button>
-        <video ref={videoRef} id="camera-video" autoPlay muted playsInline />
+        <video ref={videoRef} id="camera-video" className={isProcessing ? 'processing' : ''} autoPlay muted playsInline />
         {isProcessing ? (
           <div className="processing-indicator" id="processing-indicator">
             <div className="spinner"></div>
@@ -56,7 +57,7 @@ const CameraOverlay = forwardRef(function CameraOverlay(
           </div>
         ) : (
           <button className="photo-capture-btn" id="photo-capture-btn" onClick={onCapture}>
-            📸
+            <Camera size={24} weight="fill" />
           </button>
         )}
       </div>

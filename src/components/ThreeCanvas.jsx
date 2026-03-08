@@ -8,26 +8,28 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import gsap from 'gsap';
 
 const ThreeCanvas = forwardRef(function ThreeCanvas(
-  { onMemberReveal, onAllMembersUnlocked, onAudioIndicatorUpdate, onPlayStateChange },
+  { onMemberReveal, onAllMembersUnlocked, onAudioIndicatorUpdate, onPlayStateChange, onSongChange },
   ref
 ) {
   const canvasRef = useRef();
 
   // Stable refs to always-current callbacks (avoids stale closures in animation loop)
   const callbackRef = useRef({});
-  callbackRef.current = { onMemberReveal, onAllMembersUnlocked, onAudioIndicatorUpdate, onPlayStateChange };
+  callbackRef.current = { onMemberReveal, onAllMembersUnlocked, onAudioIndicatorUpdate, onPlayStateChange, onSongChange };
 
   // Imperative handles — populated inside useEffect, exposed via ref
   const captureSceneRef = useRef();
   const togglePlayRef = useRef();
   const stopMusicRef = useRef();
   const changeModelRef = useRef();
+  const nextSongRef = useRef();
 
   useImperativeHandle(ref, () => ({
     captureScene: () => captureSceneRef.current?.(),
     togglePlay: () => togglePlayRef.current?.(),
     stop: () => stopMusicRef.current?.(),
     changeModel: (modelName) => changeModelRef.current?.(modelName),
+    nextSong: () => nextSongRef.current?.(),
   }));
 
   useEffect(() => {
@@ -889,6 +891,9 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       changeSound.currentTime = 0;
       changeSound.play().catch(() => {});
 
+      const shortName = newSong.name.replace('RIIZE ', '').replace(' Instrumental', '');
+      callbackRef.current.onSongChange?.(shortName);
+
       if (audioIndicator) {
         const shortName = newSong.name.replace('RIIZE ', '').replace(' Instrumental', '');
         audioIndicator.textContent = shortName;
@@ -913,9 +918,10 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       }
     }
 
-    // Expose play/stop via refs
+    // Expose play/stop/next via refs
     togglePlayRef.current = togglePlayStop;
     stopMusicRef.current = stopMusic;
+    nextSongRef.current = switchToNextSong;
 
     // ─── Event handlers ───────────────────────────────────────────────────────
     function onResize() {
