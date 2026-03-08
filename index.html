@@ -3,72 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>RIIZEland</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-    <div id="experience">
-        <canvas id="experience-canvas"></canvas>
-    </div>
-    
-    <div class="members">
-        <div class="member0" data-model="simplehead"><img src="./member0.png" alt="member0"></div>
-        <div class="member1" data-model="sungchan"><img src="./member1.png" alt="member1"></div>
-        <div class="member2" data-model="eunseok"><img src="./member2.png" alt="member2"></div>
-        <div class="member3" data-model="shotaro"><img src="./member3.png" alt="member3"></div>
-        <div class="member4" data-model="sohee"><img src="./member4.png" alt="member4"></div>
-        <div class="member5" data-model="anton"><img src="./member5.png" alt="member5"></div>
-    </div>
-
-    <!-- Bottom Controls -->
-    <div class="bottom-controls">
-        <!-- Camera Button -->
-        <div class="camera-controls">
-            <button id="camera-btn" class="control-btn camera">📷</button>
-        </div>
-
-        <!-- Audio Controls -->
-        <div class="audio-controls">
-            <audio id="background-music" preload="auto" loop>
-                <source src="./RIIZE Odyssey Instrumental.mp3" type="audio/mpeg">
-                Your browser does not support the audio element.
-            </audio>
-            <div class="audio-indicator" id="audio-indicator">1.00x</div>
-            <div class="audio-buttons">
-                <button id="play-btn" class="audio-btn">▶</button>
-                <button id="stop-btn" class="audio-btn">⏹</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Camera Overlay -->
-    <div class="camera-overlay" id="camera-overlay">
-        <div class="camera-container">
-            <button class="camera-close-btn" id="camera-close-btn">&times;</button>
-            <video id="camera-video" autoplay muted playsinline></video>
-            <button class="photo-capture-btn" id="photo-capture-btn">📸</button>
-            <div class="processing-indicator" id="processing-indicator" style="display: none;">
-                <div class="spinner"></div>
-                <span>Generating AI image...</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"
-        }
-    }
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
-    
-    
-    <script type="module" src="./main.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
