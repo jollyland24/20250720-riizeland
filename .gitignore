@@ -1,0 +1,14 @@
+# Vite build output (auto-generated, never commit)
+dist/
+
+# Node modules
+node_modules/
+
+# Environment secrets
+.env
+
+# Debug output folder (generated at runtime)
+debug/
+
+# OS files
+.DS_Store
