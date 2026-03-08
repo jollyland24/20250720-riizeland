@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Camera } from "@phosphor-icons/react";
+import { Camera, User, Mountains } from "@phosphor-icons/react";
 import ThreeCanvas from './components/ThreeCanvas.jsx';
 import MemberSelector from './components/MemberSelector.jsx';
 import CameraOverlay from './components/CameraOverlay.jsx';
@@ -24,6 +24,7 @@ export default function App() {
   const [currentTrack, setCurrentTrack] = useState(null);
   const trackTimerRef = useRef(null);
   const [showTitle, setShowTitle] = useState(true);
+  const [currentView, setCurrentView] = useState('explore');
 
   const threeRef = useRef();      // ThreeCanvas imperative handle
   const videoRef = useRef();      // CameraOverlay <video> element
@@ -76,7 +77,8 @@ export default function App() {
 
   const handleCapture = async () => {
     if (isProcessing) return;
-    setIsProcessing(true);
+    // Capture photos immediately; delay the overlay so the button blink is visible
+    setTimeout(() => setIsProcessing(true), 300);
     try {
       const userPhotoBlob = await captureUserPhoto(videoRef.current);
       const scenePhotoBlob = await threeRef.current.captureScene();
@@ -99,6 +101,12 @@ export default function App() {
 
   const handlePlay = () => threeRef.current?.togglePlay();
   const handleNextSong = () => threeRef.current?.nextSong();
+
+  const handleViewToggle = () => {
+    const next = currentView === 'explore' ? 'character' : 'explore';
+    setCurrentView(next);
+    threeRef.current?.switchView(next);
+  };
 
   return (
     <>
@@ -123,6 +131,11 @@ export default function App() {
           >
             <Camera size={20} weight={isCameraActive ? "fill" : "regular"} />
           </button>
+          <button className="control-btn view-toggle" onClick={handleViewToggle}>
+            {currentView === 'explore'
+              ? <User weight="fill" size={20} />
+              : <Mountains weight="fill" size={20} />}
+          </button>
         </div>
         <AudioControls
           isPlaying={isPlaying}
@@ -141,7 +154,14 @@ export default function App() {
       />
 
       {showTitle && (
-        <div className="track-overlay title-overlay" onAnimationEnd={() => setShowTitle(false)}>
+        <div
+          className="track-overlay title-overlay"
+          onAnimationEnd={() => {
+            setShowTitle(false);
+            setCurrentView('character');
+            threeRef.current?.switchView('character');
+          }}
+        >
           RIIZE<br />LAND
         </div>
       )}

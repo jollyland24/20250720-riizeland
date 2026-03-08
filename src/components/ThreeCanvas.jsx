@@ -23,6 +23,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
   const stopMusicRef = useRef();
   const changeModelRef = useRef();
   const nextSongRef = useRef();
+  const switchViewRef = useRef();
 
   useImperativeHandle(ref, () => ({
     captureScene: () => captureSceneRef.current?.(),
@@ -30,6 +31,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
     stop: () => stopMusicRef.current?.(),
     changeModel: (modelName) => changeModelRef.current?.(modelName),
     nextSong: () => nextSongRef.current?.(),
+    switchView: (view) => switchViewRef.current?.(view),
   }));
 
   useEffect(() => {
@@ -189,6 +191,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
     const bgMaterial = new THREE.ShaderMaterial({ vertexShader, fragmentShader });
     const backgroundPlane = new THREE.Mesh(bgGeometry, bgMaterial);
     backgroundPlane.renderOrder = -1;
+    backgroundPlane.frustumCulled = false;
     scene.add(backgroundPlane);
     scene.background = null;
     scene.fog = new THREE.FogExp2(0xEAD7FF, 0.001);
@@ -382,7 +385,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
     // Camera
     const aspect = sizes.width / sizes.height;
     const camera = new THREE.OrthographicCamera(
-      -aspect * 50, aspect * 50, 50, -50, 1, 1000
+      -aspect * 50, aspect * 50, 50, -50, 0.1, 1000
     );
     scene.add(camera);
     camera.position.set(29, 52, 82);
@@ -408,7 +411,105 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
     controls.maxPolarAngle = Math.PI / 2;
     controls.minZoom = 0.5;
     controls.maxZoom = 1.5;
-    controls.update();
+
+    // ─── View switching ───────────────────────────────────────────────────────
+    let currentView = 'explore';
+
+    function switchView(view) {
+      currentView = view;
+      if (view === 'character') {
+        const char = character.instance;
+        const cx = char ? char.position.x : 0;
+        const cy = char ? char.position.y : 0;
+        const cz = char ? char.position.z : 0;
+
+        // Freeze OrbitControls so damping doesn't fight the GSAP animation
+        controls.enabled = false;
+
+        const tl = gsap.timeline({
+          onComplete: () => {
+            controls.target.set(cx, cy + 1, cz);
+            controls.minAzimuthAngle = -Math.PI / 3;
+            controls.maxAzimuthAngle = Math.PI / 3;
+            controls.minPolarAngle = Math.PI * 0.42;
+            controls.maxPolarAngle = Math.PI * 0.58;
+            controls.minZoom = 1.8;
+            controls.maxZoom = 2.8;
+            controls.enabled = true;
+            controls.update();
+          },
+        });
+
+        // Phase 1 — pull toward the character from above (zoom out slightly, drift in)
+        tl.to(camera.position, {
+          x: cx + 18,
+          y: cy + 38,
+          z: cz + 22,
+          duration: 1.1,
+          ease: 'power2.in',
+        });
+        tl.to(camera, {
+          zoom: 0.75,
+          duration: 1.1,
+          ease: 'power2.in',
+          onUpdate: () => camera.updateProjectionMatrix(),
+        }, 0);
+        tl.to(controls.target, {
+          x: cx, y: cy + 1, z: cz,
+          duration: 1.1,
+          ease: 'power2.in',
+        }, 0);
+
+        // Phase 2 — swoop down to eye level
+        tl.to(camera.position, {
+          x: cx + 7,
+          y: cy + 2,
+          z: cz + 7,
+          duration: 1.6,
+          ease: 'power3.inOut',
+        });
+        tl.to(camera, {
+          zoom: 2.2,
+          duration: 1.6,
+          ease: 'power2.inOut',
+          onUpdate: () => camera.updateProjectionMatrix(),
+        }, '-=1.6');
+      } else {
+        controls.enabled = false;
+
+        const tl = gsap.timeline({
+          onComplete: () => {
+            controls.minAzimuthAngle = -Math.PI / 6;
+            controls.maxAzimuthAngle = Math.PI / 6;
+            controls.minPolarAngle = Math.PI / 3;
+            controls.maxPolarAngle = Math.PI / 2;
+            controls.minZoom = 0.5;
+            controls.maxZoom = 1.5;
+            controls.enabled = true;
+            controls.update();
+          },
+        });
+
+        tl.to(camera.position, {
+          x: 29, y: 52, z: 82,
+          duration: 1.8,
+          ease: 'power2.inOut',
+        });
+        tl.to(camera, {
+          zoom: 0.6,
+          duration: 1.8,
+          ease: 'power2.inOut',
+          onUpdate: () => camera.updateProjectionMatrix(),
+        }, 0);
+        tl.to(controls.target, {
+          x: 0, y: 0, z: 0,
+          duration: 1.8,
+          ease: 'power2.inOut',
+        }, 0);
+      }
+    }
+
+    switchViewRef.current = switchView;
 
     // ─── Scene capture (exposed via ref) ─────────────────────────────────────
     captureSceneRef.current = () => {
@@ -996,8 +1097,19 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       updateStars();
       updateTape();
       updateBoundingBoxes();
-      updateZoomEffects();
-      updatePanningEffects();
+
+      if (currentView === 'character' && character.instance) {
+        // Lazy follow — camera drifts behind rather than snapping, feels less "game controller"
+        controls.target.x += (character.instance.position.x - controls.target.x) * 0.06;
+        controls.target.z += (character.instance.position.z - controls.target.z) * 0.06;
+      }
+
+      controls.update();
+
+      if (currentView === 'explore') {
+        updateZoomEffects();
+        updatePanningEffects();
+      }
 
       retroPass.uniforms.time.value = Date.now() * 0.001;
 

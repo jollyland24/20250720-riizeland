@@ -1,12 +1,6 @@
-import { useEffect } from 'react';
+import { X } from '@phosphor-icons/react';
 
 export default function MergedImageModal({ imageUrl, onClose }) {
-  // Auto-close after 10 seconds
-  useEffect(() => {
-    const timer = setTimeout(onClose, 10000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
   return (
     <div
       style={{
@@ -45,12 +39,14 @@ export default function MergedImageModal({ imageUrl, onClose }) {
           border: 'none',
           borderRadius: '50%',
           background: 'rgba(255, 255, 255, 0.9)',
-          fontSize: '1.5rem',
           cursor: 'pointer',
           zIndex: 3001,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        &times;
+        <X size={20} weight="bold" />
       </button>
     </div>
   );
