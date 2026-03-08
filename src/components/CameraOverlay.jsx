@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Camera, X } from "@phosphor-icons/react";
 
 const CameraOverlay = forwardRef(function CameraOverlay(
@@ -6,6 +6,8 @@ const CameraOverlay = forwardRef(function CameraOverlay(
   videoRef
 ) {
   const streamRef = useRef(null);
+  const [countdown, setCountdown] = useState(null);
+  const [isFlashing, setIsFlashing] = useState(false);
 
   useEffect(() => {
     if (isActive) {
@@ -22,6 +24,8 @@ const CameraOverlay = forwardRef(function CameraOverlay(
         })
         .catch((err) => console.error('Camera error:', err));
     } else {
+      setCountdown(null);
+      setIsFlashing(false);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -39,6 +43,19 @@ const CameraOverlay = forwardRef(function CameraOverlay(
     };
   }, [isActive]);
 
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown === 0) {
+      setCountdown(null);
+      setIsFlashing(true);
+      onCapture();
+      const t = setTimeout(() => setIsFlashing(false), 300);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setCountdown((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
   return (
     <div
       className="camera-overlay"
@@ -50,13 +67,20 @@ const CameraOverlay = forwardRef(function CameraOverlay(
           <X size={16} />
         </button>
         <video ref={videoRef} id="camera-video" className={isProcessing ? 'processing' : ''} autoPlay muted playsInline />
+
         {isProcessing ? (
           <div className="processing-indicator" id="processing-indicator">
             <div className="spinner"></div>
             <span>Generating AI image...</span>
           </div>
+        ) : countdown !== null ? (
+          <div key={countdown} className="countdown-display">{countdown}</div>
         ) : (
-          <button className="photo-capture-btn" id="photo-capture-btn" onClick={onCapture}>
+          <button
+            className={`photo-capture-btn${isFlashing ? ' flashing' : ''}`}
+            id="photo-capture-btn"
+            onClick={!isFlashing ? () => setCountdown(3) : undefined}
+          >
             <Camera size={24} weight="fill" />
           </button>
         )}

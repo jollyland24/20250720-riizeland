@@ -194,7 +194,7 @@ app.post('/api/merge-images', upload.fields([
         const userPhotoPng = await sharp(resizedUserPhoto).png().toBuffer();
         const scenePhotoPng = await sharp(resizedScenePhoto).png().toBuffer();
 
-        const prompt = `Place the person from the first image into the floating island 3D scene from the second image. Render the person as a character that fits naturally into the scene's art style, standing on the islands. Match the scene's lighting, colors, and visual style.`;
+        const prompt = `Create a composite image in two layers. Background layer: the person from the first image, rendered photorealistically with their exact face, skin tone, hair colour, hair style, and clothing faithfully preserved — they must be immediately recognisable as the same person. Do not alter or idealise their appearance. Foreground layer: multiple miniature LEGO dioramas based on the scene from the second image, reimagined as hyper-realistic physical LEGO sets floating and orbiting freely around the person — some closer, some further, at different angles and heights, as if weightless in the air. Each diorama has visible plastic stud textures, chunky brick geometry, and realistic studio lighting with soft shadows. The floating LEGO pieces partially overlap the person but their face remains fully visible and unobscured. The contrast between the real unmodified human and the surrounding toy world is the key visual.`;
 
         console.log('Sending request to OpenAI gpt-image-1-mini...');
 

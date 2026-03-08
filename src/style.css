@@ -147,6 +147,33 @@
     transform: scale(0.95);
 }
 
+.control-btn.view-toggle {
+    width: 3.5rem;
+    height: 3.5rem;
+    border: none;
+    border-radius: 50%;
+    background-color: rgba(40, 20, 80, 0.85);
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Doto", sans-serif;
+    margin-left: 0.5rem;
+}
+
+.control-btn.view-toggle:hover {
+    background-color: rgba(40, 20, 80, 1);
+    transform: scale(1.1);
+}
+
+.control-btn.view-toggle:active {
+    transform: scale(0.95);
+}
+
 /* Audio Controls */
 .audio-controls {
     display: flex;
@@ -297,6 +324,37 @@
     transform: translateX(-50%) scale(0.95);
 }
 
+.photo-capture-btn.flashing {
+    animation: captureFlash 0.3s ease-in-out 1;
+}
+
+@keyframes captureFlash {
+    0%, 100% { background: linear-gradient(45deg, #ff4444, #cc0000); }
+    50%       { background: white; box-shadow: 0 0 24px rgba(255, 255, 255, 0.9); }
+}
+
+.countdown-display {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: "Arial Narrow", Arial, sans-serif;
+    font-size: 6rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 0 20px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6);
+    animation: countdownPop 0.9s ease-out forwards;
+    pointer-events: none;
+    z-index: 20;
+}
+
+@keyframes countdownPop {
+    0%   { transform: translate(-50%, -50%) scale(1.4); opacity: 0; }
+    15%  { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
+    80%  { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+}
+
 .processing-indicator {
     position: absolute;
     bottom: 1rem;
@@ -315,6 +373,10 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+}
+
+.processing-indicator span {
+    font-family: "Arial Narrow", Arial, sans-serif;
 }
 
 .spinner {
