@@ -812,8 +812,8 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       }
     }
 
-    function updateScratchSound() {
-      const volume = Math.min(1.0, scratchIntensity * 50);
+    function updateScratchSound(intensity) {
+      const volume = Math.min(1.0, intensity * 50);
       if (!scratchSound.paused && scratchSound.currentTime > 0) {
         scratchSound.volume = volume;
       } else if (volume > 0.1) {
@@ -845,39 +845,38 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       currentAzimuth = controls.getAzimuthalAngle();
       azimuthVelocity = currentAzimuth - previousAzimuth;
       previousAzimuth = currentAzimuth;
-      scratchIntensity = Math.abs(azimuthVelocity);
+
+      const scratchIntensity = Math.abs(azimuthVelocity);
 
       if (scratchIntensity > 0.005) {
         if (!isScrubbing) {
           isScrubbing = true;
-          accumulatedScrubDistance = 0;
-          maxScratchIntensity = 0;
+          if (audioIndicator) {
+            audioIndicator.textContent = 'scratch';
+            audioIndicator.style.backgroundColor = 'rgba(255, 100, 0, 0.9)';
+            audioIndicator.style.transform = 'scale(1.1)';
+            audioIndicator.style.boxShadow = '0 0 12px orange';
+          }
         }
-        maxScratchIntensity = Math.max(maxScratchIntensity, scratchIntensity);
-        updateScratchSound();
-        accumulatedScrubDistance += azimuthVelocity;
-        const timeShift = accumulatedScrubDistance * scrubSensitivity;
-        const newTime = Math.max(
-          0,
-          Math.min(backgroundMusic.duration || 0, backgroundMusic.currentTime + timeShift)
-        );
-        backgroundMusic.currentTime = newTime;
-        accumulatedScrubDistance = 0;
-
-        if (azimuthVelocity < 0) {
-          scrubDirection = 'LEFT';
-          targetScrubRate = -scrubSpeed;
-        } else {
-          scrubDirection = 'RIGHT';
-          targetScrubRate = scrubSpeed;
-        }
-        updateScrubVisuals();
-
+        // Duck the music under the scratch
+        if (gainNode) gainNode.gain.value = 0.15;
+        updateScratchSound(scratchIntensity);
         if (scratchFadeTimeout) {
           clearTimeout(scratchFadeTimeout);
           scratchFadeTimeout = null;
         }
       } else if (isScrubbing) {
+        scratchFadeTimeout = setTimeout(() => {
+          isScrubbing = false;
+          // Restore music volume
+          if (gainNode) gainNode.gain.value = 1.0;
+          if (audioIndicator) {
+            audioIndicator.textContent = '1.00x';
+            audioIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            audioIndicator.style.transform = 'scale(1.0)';
+            audioIndicator.style.boxShadow = 'none';
+          }
+        }, 200);
         startScratchFade();
       }
     }
