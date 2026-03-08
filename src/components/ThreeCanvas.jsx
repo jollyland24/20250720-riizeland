@@ -301,10 +301,8 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
     const loader = new GLTFLoader();
     loader.load('/export.glb', function (glb) {
       glb.scene.traverse((child) => {
-        console.log(child.name);
         if (intersectObjectsNames.includes(child.name)) {
           intersectObjects.push(child);
-          console.log(`Added ${child.name} to intersectObjects`);
         }
 
         if (starNames.includes(child.name)) {
@@ -328,11 +326,8 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
           tape.originalPosition = child.position.clone();
           tape.boundingBox = new THREE.Box3();
           child.traverse((meshChild) => {
-            if (meshChild.isMesh) {
-              console.log(`Found tape mesh: ${meshChild.name}`);
-              if (!intersectObjects.includes(meshChild)) {
-                intersectObjects.push(meshChild);
-              }
+            if (meshChild.isMesh && !intersectObjects.includes(meshChild)) {
+              intersectObjects.push(meshChild);
             }
           });
           if (boundingBoxes.showHelpers) {
@@ -364,9 +359,6 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
         }
       });
       scene.add(glb.scene);
-      console.log('GLTF loaded successfully');
-    }, undefined, (error) => {
-      console.error('GLTF loading error:', error);
     });
 
     // Lights
@@ -473,9 +465,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
 
     // ─── Tape interaction ─────────────────────────────────────────────────────
     function showModal(objectName) {
-      console.log(`Clicked on: ${objectName}`);
       if (objectName === 'tape') {
-        console.log('Tape clicked! Switching to next song...');
         switchToNextSong();
       }
     }
@@ -484,7 +474,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       if (!tape.instance || tape.isAnimating) return;
       tape.isAnimating = true;
       bounceSound.currentTime = 0;
-      bounceSound.play().catch((e) => console.log('Audio playback failed:', e));
+      bounceSound.play().catch(() => {});
 
       const bounceTimeline = gsap.timeline({ onComplete: () => { tape.isAnimating = false; } });
       bounceTimeline.to(tape.instance.position, {
@@ -530,11 +520,9 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
           duration: 2,
           ease: 'power2.inOut',
           onUpdate: () => { camera.updateProjectionMatrix(); },
-          onComplete: () => { console.log('Camera zoom completed!'); },
         });
 
         callbackRef.current.onAllMembersUnlocked?.();
-        console.log('All stars collected! Camera zooming in and members are now clickable!');
       }
       return characterModels.allCollected;
     }
@@ -545,7 +533,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       showNextMember(stars.collected.size);
 
       collectSound.currentTime = 0;
-      collectSound.play().catch((e) => console.log('Audio playback failed:', e));
+      collectSound.play().catch(() => {});
 
       if (starObject.helper) starObject.helper.visible = false;
 
@@ -575,14 +563,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
 
     // ─── Character model ──────────────────────────────────────────────────────
     function changeCharacterModel(modelName) {
-      if (!characterModels.allCollected) {
-        console.log('Collect all stars first!');
-        return;
-      }
-      if (!characterModels.availableModels[modelName]) {
-        console.log(`Model ${modelName} not available`);
-        return;
-      }
+      if (!characterModels.allCollected || !characterModels.availableModels[modelName]) return;
 
       const currentPosition = character.instance
         ? character.instance.position.clone()
@@ -600,7 +581,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       }
 
       changeSound.currentTime = 0;
-      changeSound.play().catch((e) => console.log('Audio playback failed:', e));
+      changeSound.play().catch(() => {});
 
       if (modelName === 'simplehead') {
         scene.traverse((child) => {
@@ -631,7 +612,6 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
             scene.add(newCharacter);
           },
           undefined,
-          (error) => { console.error(`Error loading ${modelName} model:`, error); }
         );
       }
     }
@@ -721,7 +701,6 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       accumulatedScrubDistance = 0;
       scratchIntensity = 0;
       maxScratchIntensity = 0;
-      console.log('POSITIONAL SCRUB END');
       if (audioIndicator) {
         audioIndicator.textContent = '1.00x';
         audioIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
@@ -737,7 +716,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       } else if (volume > 0.1) {
         scratchSound.currentTime = 0;
         scratchSound.volume = volume;
-        scratchSound.play().catch((e) => console.log('Scratch sound failed:', e));
+        scratchSound.play().catch(() => {});
       }
     }
 
@@ -770,7 +749,6 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
           isScrubbing = true;
           accumulatedScrubDistance = 0;
           maxScratchIntensity = 0;
-          console.log('POSITIONAL SCRUB START');
         }
         maxScratchIntensity = Math.max(maxScratchIntensity, scratchIntensity);
         updateScratchSound();
@@ -877,13 +855,11 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
         backgroundMusic.pause();
         isPlaying = false;
         callbackRef.current.onPlayStateChange?.(false);
-        console.log('Music stopped');
       } else {
         initAudioContext();
-        backgroundMusic.play().catch((e) => console.log('Audio playback failed:', e));
+        backgroundMusic.play().catch(() => {});
         isPlaying = true;
         callbackRef.current.onPlayStateChange?.(true);
-        console.log('Music started');
       }
     }
 
@@ -911,7 +887,7 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
       backgroundMusic.load();
 
       changeSound.currentTime = 0;
-      changeSound.play().catch((e) => console.log('Change sound failed:', e));
+      changeSound.play().catch(() => {});
 
       if (audioIndicator) {
         const shortName = newSong.name.replace('RIIZE ', '').replace(' Instrumental', '');
@@ -932,11 +908,9 @@ const ThreeCanvas = forwardRef(function ThreeCanvas(
 
       if (wasPlaying) {
         backgroundMusic.addEventListener('loadeddata', () => {
-          backgroundMusic.play().catch((e) => console.log('Audio playback failed:', e));
+          backgroundMusic.play().catch(() => {});
         }, { once: true });
       }
-
-      console.log(`Switched to: ${newSong.name}`);
     }
 
     // Expose play/stop via refs
