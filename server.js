@@ -2,12 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import { GoogleAuth } from 'google-auth-library';
+import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 
 dotenv.config();
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -177,9 +180,7 @@ app.post('/api/merge-images', upload.fields([
         fs.writeFileSync(`${debugFolder}/02-original-scene-photo.jpg`, scenePhotoBuffer);
         console.log(`🐛 Debug images saved to: ${debugFolder}`);
 
-        // Gemini API uses API key authentication (no need for access token)
-
-        // Resize images to match dimensions before processing
+        // Resize images before processing
         const { resizedUserPhoto, resizedScenePhoto } = await resizeImagesToMatch(userPhotoBuffer, scenePhotoBuffer);
 
         // Save resized images for debugging
@@ -189,246 +190,90 @@ app.post('/api/merge-images', upload.fields([
         console.log(`📐 User photo: ${userPhotoBuffer.length} bytes, Scene: ${scenePhotoBuffer.length} bytes`);
         console.log(`🔄 Resized both to: 1024x1024`);
 
-        // Convert resized images to base64
-        const userPhotoBase64 = resizedUserPhoto.toString('base64');
-        const scenePhotoBase64 = resizedScenePhoto.toString('base64');
+        // Convert to PNG (required by OpenAI images.edit)
+        const userPhotoPng = await sharp(resizedUserPhoto).png().toBuffer();
+        const scenePhotoPng = await sharp(resizedScenePhoto).png().toBuffer();
 
-        // Gemini 2.5 Flash endpoint
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent`;
+        const prompt = `Place the person from the first image into the floating island 3D scene from the second image. Render the person as a character that fits naturally into the scene's art style, standing on the islands. Match the scene's lighting, colors, and visual style.`;
 
-        // Simplified prompt for better success rate with Gemini
-        const prompt = `Merge the person from the first image into the floating island scene from the second image. Create a character that looks like the person, placed on the islands in the scene. The character should blend naturally with the environment and any existing characters or objects in the scene.`;
+        console.log('Sending request to OpenAI gpt-image-1-mini...');
 
-        // Gemini API payload format - include both user photo and scene
-        const payload = {
-            contents: [{
-                parts: [
-                    {
-                        text: prompt
-                    },
-                    {
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: userPhotoBase64
-                        }
-                    },
-                    {
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: scenePhotoBase64
-                        }
-                    }
-                ]
-            }],
-            generation_config: {
-                response_modalities: ["IMAGE"]
-            }
-        };
+        let imageEditResponse;
+        try {
+            imageEditResponse = await openai.images.edit({
+                model: 'gpt-image-1-mini',
+                image: [
+                    new File([userPhotoPng], 'user.png', { type: 'image/png' }),
+                    new File([scenePhotoPng], 'scene.png', { type: 'image/png' }),
+                ],
+                prompt,
+                n: 1,
+                size: '1024x1024',
+            });
+        } catch (apiError) {
+            console.error('OpenAI API error:', apiError.status, apiError.message);
 
-        console.log('Sending request to Gemini 2.5 Flash...');
-
-        // Make request to Gemini API
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'x-goog-api-key': process.env.GEMINI_API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Gemini API error:', response.status, errorText);
-
-            // Handle specific permission/API key errors
-            if (response.status === 403 || response.status === 401) {
-                console.log('🔒 API key issue - falling back to simple merge');
-                console.log('📋 Please set your GEMINI_API_KEY in .env file');
-
-                // Return simple merge result instead of failing
-                const userPhotoBase64 = userPhotoBuffer.toString('base64');
+            if (apiError.status === 401 || apiError.status === 403) {
+                console.log('🔒 API key issue - check OPENAI_API_KEY in .env');
                 return res.json({
                     success: true,
-                    image: userPhotoBase64,
+                    image: userPhotoBuffer.toString('base64'),
                     mimeType: 'image/jpeg',
-                    message: 'Fallback mode: Gemini API key needed. Set GEMINI_API_KEY in .env',
+                    message: 'Fallback: OpenAI API key issue.',
                     fallback: true
                 });
             }
 
-            // Handle quota exceeded errors
-            if (response.status === 429) {
-                console.log('⏱️ Quota exceeded - falling back to simple merge');
-                console.log('📋 Please wait 30+ seconds or upgrade your Gemini API plan');
-
-                // Return simple merge result instead of failing
-                const userPhotoBase64 = userPhotoBuffer.toString('base64');
+            if (apiError.status === 429) {
+                console.log('⏱️ OpenAI rate limit hit - falling back');
                 return res.json({
                     success: true,
-                    image: userPhotoBase64,
+                    image: userPhotoBuffer.toString('base64'),
                     mimeType: 'image/jpeg',
-                    message: 'Fallback mode: Gemini quota exceeded. Wait 30s or upgrade plan.',
+                    message: 'Fallback: OpenAI rate limit. Try again shortly.',
                     fallback: true
                 });
             }
 
-            throw new Error(`Gemini API request failed: ${response.status} ${errorText}`);
+            throw apiError;
         }
 
-        const result = await response.json();
-        console.log('Gemini API response received');
-        console.log('Response structure:', JSON.stringify(result, null, 2));
+        const generatedImageData = imageEditResponse.data[0].b64_json;
 
-        if (result.candidates && result.candidates.length > 0) {
-            const candidate = result.candidates[0];
+        if (!generatedImageData) {
+            throw new Error('No image data in OpenAI response');
+        }
 
-            // Handle NO_IMAGE response
-            if (candidate.finishReason === 'NO_IMAGE') {
-                console.log('🚫 Gemini refused to generate image (NO_IMAGE) - falling back to user photo');
-                console.log('📋 This might be due to safety filters or content policy');
+        // Save AI output for debugging
+        const outputImageBuffer = Buffer.from(generatedImageData, 'base64');
+        fs.writeFileSync(`${debugFolder}/05-ai-output.png`, outputImageBuffer);
+        console.log(`🤖 AI output saved to: ${debugFolder}/05-ai-output.png`);
 
-                const userPhotoBase64 = userPhotoBuffer.toString('base64');
-                console.log('📤 Sending fallback response with user photo (' + userPhotoBase64.length + ' bytes)...');
-                try {
-                    res.json({
-                        success: true,
-                        image: userPhotoBase64,
-                        mimeType: 'image/jpeg',
-                        message: 'Fallback mode: Gemini refused image generation (safety filters)',
-                        fallback: true,
-                        debugFolder: debugFolder
-                    });
-                    console.log('✅ Fallback response sent successfully!');
-                    return;
-                } catch (sendError) {
-                    console.error('❌ Error sending fallback response:', sendError);
-                    res.status(500).json({
-                        error: 'Failed to send fallback image',
-                        message: sendError.message
-                    });
-                    return;
-                }
+        // Save debug info
+        const debugInfo = {
+            prompt,
+            requestTimestamp: debugTimestamp,
+            apiModel: 'gpt-image-1-mini',
+            responsePreview: {
+                success: true,
+                hasImage: true,
+                imageSizeBytes: generatedImageData.length
             }
+        };
+        fs.writeFileSync(`${debugFolder}/00-debug-info.json`, JSON.stringify(debugInfo, null, 2));
 
-            // Handle IMAGE_OTHER response (model couldn't generate image based on prompt)
-            if (candidate.finishReason === 'IMAGE_OTHER') {
-                console.log('🚫 Gemini could not generate image (IMAGE_OTHER) - falling back to user photo');
-                console.log('📋 Reason:', candidate.finishMessage);
-                console.log('💡 Tip: Try a different prompt or image that better describes the desired output');
-
-                const userPhotoBase64 = userPhotoBuffer.toString('base64');
-                console.log('📤 Sending fallback response with user photo (' + userPhotoBase64.length + ' bytes)...');
-                try {
-                    res.json({
-                        success: true,
-                        image: userPhotoBase64,
-                        mimeType: 'image/jpeg',
-                        message: 'Fallback mode: Gemini could not generate image with this prompt',
-                        fallback: true,
-                        debugFolder: debugFolder,
-                        geminiMessage: candidate.finishMessage
-                    });
-                    console.log('✅ Fallback response sent successfully!');
-                    return;
-                } catch (sendError) {
-                    console.error('❌ Error sending fallback response:', sendError);
-                    res.status(500).json({
-                        error: 'Failed to send fallback image',
-                        message: sendError.message
-                    });
-                    return;
-                }
-            }
-
-            const content = candidate.content;
-
-            // Find the image part in the response
-            let generatedImageData = null;
-            if (content && content.parts) {
-                console.log('Detailed parts inspection:');
-                for (let i = 0; i < content.parts.length; i++) {
-                    const part = content.parts[i];
-                    console.log(`Part ${i}:`, {
-                        hasInlineData: !!part.inline_data,
-                        hasInlineDataCamel: !!part.inlineData,
-                        mimeType: part.inline_data?.mime_type || part.inlineData?.mimeType,
-                        hasData: !!(part.inline_data?.data || part.inlineData?.data),
-                        dataLength: (part.inline_data?.data || part.inlineData?.data)?.length || 0,
-                        partKeys: Object.keys(part)
-                    });
-
-                    // Check for inline_data with image mime type (snake_case)
-                    if (part.inline_data && part.inline_data.mime_type && part.inline_data.mime_type.startsWith('image/')) {
-                        generatedImageData = part.inline_data.data;
-                        console.log('✅ Found image data via inline_data path (snake_case)');
-                        break;
-                    }
-                    // Check for inlineData with image mime type (camelCase)
-                    if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('image/')) {
-                        generatedImageData = part.inlineData.data;
-                        console.log('✅ Found image data via inlineData path (camelCase)');
-                        break;
-                    }
-                    // Also check for direct data field (alternative format)
-                    if (part.data) {
-                        generatedImageData = part.data;
-                        console.log('✅ Found image data via direct data path');
-                        break;
-                    }
-                }
-            }
-
-            console.log('Image extraction debug:', {
-                hasContent: !!content,
-                partsCount: content?.parts?.length || 0,
-                hasImageData: !!generatedImageData,
-                imageDataLength: generatedImageData?.length || 0
+        console.log('📤 Sending OpenAI response...');
+        try {
+            res.json({
+                success: true,
+                image: generatedImageData,
+                mimeType: 'image/png',
+                debugFolder: debugFolder
             });
-
-            if (generatedImageData) {
-                // Save AI output for debugging
-                const outputImageBuffer = Buffer.from(generatedImageData, 'base64');
-                fs.writeFileSync(`${debugFolder}/05-ai-output.jpg`, outputImageBuffer);
-                console.log(`🤖 AI output saved to: ${debugFolder}/05-ai-output.jpg`);
-
-                // Save API request/response for debugging
-                const debugInfo = {
-                    prompt: prompt,
-                    requestTimestamp: debugTimestamp,
-                    modelEndpoint: endpoint,
-                    apiModel: "gemini-2.5-flash-image",
-                    responsePreview: {
-                        success: true,
-                        hasImage: !!generatedImageData,
-                        mimeType: 'image/jpeg',
-                        imageSizeBytes: generatedImageData.length
-                    }
-                };
-                fs.writeFileSync(`${debugFolder}/00-debug-info.json`, JSON.stringify(debugInfo, null, 2));
-
-                // Return the generated image
-                console.log('📤 About to send response with image data...');
-                try {
-                    res.json({
-                        success: true,
-                        image: generatedImageData,
-                        mimeType: 'image/jpeg',
-                        debugFolder: debugFolder
-                    });
-                    console.log('✅ Response sent successfully!');
-                } catch (sendError) {
-                    console.error('❌ Error sending response:', sendError);
-                    res.status(500).json({
-                        error: 'Failed to send image',
-                        message: sendError.message
-                    });
-                }
-            } else {
-                throw new Error('No image found in Gemini API response');
-            }
-        } else {
-            throw new Error('No candidates in Gemini API response');
+            console.log('✅ Response sent successfully!');
+        } catch (sendError) {
+            console.error('❌ Error sending response:', sendError);
+            res.status(500).json({ error: 'Failed to send image', message: sendError.message });
         }
 
     } catch (error) {
