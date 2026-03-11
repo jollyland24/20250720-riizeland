@@ -54,7 +54,7 @@ const CameraOverlay = forwardRef(function CameraOverlay(
     }
     const t = setTimeout(() => setCountdown((n) => n - 1), 1000);
     return () => clearTimeout(t);
-  }, [countdown]);
+  }, [countdown, onCapture]);
 
   return (
     <div
