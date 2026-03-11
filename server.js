@@ -1,0 +1,350 @@
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
+import { GoogleAuth } from 'google-auth-library';
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import sharp from 'sharp';
+
+dotenv.config();
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Configure CORS
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:8000',
+    credentials: true
+}));
+
+// Configure multer for file uploads
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB limit
+    }
+});
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Initialize Google Auth
+const auth = new GoogleAuth({
+    keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    scopes: ['https://www.googleapis.com/auth/cloud-platform']
+});
+
+// Image processing utilities
+async function createPersonMask(imageBuffer) {
+    try {
+        // Create a simple mask for the person
+        // For now, create a center-focused oval mask where a person would typically be
+        const { width, height } = await sharp(imageBuffer).metadata();
+
+        // Create an SVG mask (white where person should be, black elsewhere)
+        const maskSvg = `
+            <svg width="${width}" height="${height}">
+                <rect width="${width}" height="${height}" fill="black"/>
+                <ellipse cx="${width/2}" cy="${height*0.6}" rx="${width*0.3}" ry="${height*0.4}" fill="white"/>
+            </svg>
+        `;
+
+        const maskBuffer = await sharp(Buffer.from(maskSvg))
+            .png()
+            .toBuffer();
+
+        return maskBuffer.toString('base64');
+    } catch (error) {
+        console.error('Mask creation error:', error);
+        // Fallback: create a simple center mask
+        const maskBuffer = await sharp({
+            create: {
+                width: 1024,
+                height: 1024,
+                channels: 3,
+                background: { r: 0, g: 0, b: 0 }
+            }
+        })
+        .composite([{
+            input: Buffer.from(`<svg><ellipse cx="512" cy="600" rx="300" ry="400" fill="white"/></svg>`),
+            top: 0,
+            left: 0
+        }])
+        .png()
+        .toBuffer();
+
+        return maskBuffer.toString('base64');
+    }
+}
+
+async function resizeImagesToMatch(userPhotoBuffer, scenePhotoBuffer) {
+    try {
+        // Get dimensions of both images
+        const userMeta = await sharp(userPhotoBuffer).metadata();
+        const sceneMeta = await sharp(scenePhotoBuffer).metadata();
+
+        console.log(`Original sizes - User: ${userMeta.width}x${userMeta.height}, Scene: ${sceneMeta.width}x${sceneMeta.height}`);
+
+        // Use the scene dimensions as target (since it's our background)
+        const targetWidth = Math.min(sceneMeta.width, 1024); // Cap at 1024 for processing
+        const targetHeight = Math.min(sceneMeta.height, 1024);
+
+        // Resize both images to same dimensions
+        const resizedUserPhoto = await sharp(userPhotoBuffer)
+            .resize(targetWidth, targetHeight, {
+                fit: 'cover',
+                position: 'center'
+            })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+
+        const resizedScenePhoto = await sharp(scenePhotoBuffer)
+            .resize(targetWidth, targetHeight, {
+                fit: 'cover',
+                position: 'center'
+            })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+
+        console.log(`Resized to: ${targetWidth}x${targetHeight}`);
+
+        return { resizedUserPhoto, resizedScenePhoto };
+    } catch (error) {
+        console.error('Image resize error:', error);
+        throw error;
+    }
+}
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'OK', message: 'RIIZE Backend Server is running' });
+});
+
+// Get access token endpoint
+app.get('/api/auth/token', async (req, res) => {
+    try {
+        const client = await auth.getClient();
+        const accessToken = await client.getAccessToken();
+
+        res.json({
+            access_token: accessToken.token,
+            expires_in: 3600
+        });
+    } catch (error) {
+        console.error('Authentication error:', error);
+        res.status(500).json({
+            error: 'Authentication failed',
+            message: error.message
+        });
+    }
+});
+
+// Image merging endpoint using Vertex AI
+app.post('/api/merge-images', upload.fields([
+    { name: 'userPhoto', maxCount: 1 },
+    { name: 'scenePhoto', maxCount: 1 }
+]), async (req, res) => {
+    try {
+        console.log('Received image merge request');
+
+        if (!req.files.userPhoto || !req.files.scenePhoto) {
+            return res.status(400).json({
+                error: 'Both userPhoto and scenePhoto are required'
+            });
+        }
+
+        const userPhotoBuffer = req.files.userPhoto[0].buffer;
+        const scenePhotoBuffer = req.files.scenePhoto[0].buffer;
+
+        console.log('User photo size:', userPhotoBuffer.length);
+        console.log('Scene photo size:', scenePhotoBuffer.length);
+
+        // Create debug timestamp for this request
+        const debugTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const debugFolder = `./debug/${debugTimestamp}`;
+
+        // Create debug folder for this request
+        if (!fs.existsSync('./debug')) {
+            fs.mkdirSync('./debug');
+        }
+        if (!fs.existsSync(debugFolder)) {
+            fs.mkdirSync(debugFolder);
+        }
+
+        // Save original images for debugging
+        fs.writeFileSync(`${debugFolder}/01-original-user-photo.jpg`, userPhotoBuffer);
+        fs.writeFileSync(`${debugFolder}/02-original-scene-photo.jpg`, scenePhotoBuffer);
+        console.log(`🐛 Debug images saved to: ${debugFolder}`);
+
+        // Resize images before processing
+        const { resizedUserPhoto, resizedScenePhoto } = await resizeImagesToMatch(userPhotoBuffer, scenePhotoBuffer);
+
+        // Save resized images for debugging
+        fs.writeFileSync(`${debugFolder}/03-resized-user-photo.jpg`, resizedUserPhoto);
+        fs.writeFileSync(`${debugFolder}/04-resized-scene-photo.jpg`, resizedScenePhoto);
+
+        console.log(`📐 User photo: ${userPhotoBuffer.length} bytes, Scene: ${scenePhotoBuffer.length} bytes`);
+        console.log(`🔄 Resized both to: 1024x1024`);
+
+        // Convert to PNG (required by OpenAI images.edit)
+        const userPhotoPng = await sharp(resizedUserPhoto).png().toBuffer();
+        const scenePhotoPng = await sharp(resizedScenePhoto).png().toBuffer();
+
+        const prompt = `Create a composite image in two layers. Background layer: the person from the first image, rendered photorealistically with their exact face, skin tone, hair colour, hair style, and clothing faithfully preserved — they must be immediately recognisable as the same person. Do not alter or idealise their appearance. Foreground layer: multiple miniature LEGO dioramas based on the scene from the second image, reimagined as hyper-realistic physical LEGO sets floating and orbiting freely around the person — some closer, some further, at different angles and heights, as if weightless in the air. Each diorama has visible plastic stud textures, chunky brick geometry, and realistic studio lighting with soft shadows. The floating LEGO pieces partially overlap the person but their face remains fully visible and unobscured. The contrast between the real unmodified human and the surrounding toy world is the key visual.`;
+
+        console.log('Sending request to OpenAI gpt-image-1-mini...');
+
+        let imageEditResponse;
+        try {
+            imageEditResponse = await openai.images.edit({
+                model: 'gpt-image-1-mini',
+                image: [
+                    new File([userPhotoPng], 'user.png', { type: 'image/png' }),
+                    new File([scenePhotoPng], 'scene.png', { type: 'image/png' }),
+                ],
+                prompt,
+                n: 1,
+                size: '1024x1024',
+            });
+        } catch (apiError) {
+            console.error('OpenAI API error:', apiError.status, apiError.message);
+
+            if (apiError.status === 401 || apiError.status === 403) {
+                console.log('🔒 API key issue - check OPENAI_API_KEY in .env');
+                return res.json({
+                    success: true,
+                    image: userPhotoBuffer.toString('base64'),
+                    mimeType: 'image/jpeg',
+                    message: 'Fallback: OpenAI API key issue.',
+                    fallback: true
+                });
+            }
+
+            if (apiError.status === 429) {
+                console.log('⏱️ OpenAI rate limit hit - falling back');
+                return res.json({
+                    success: true,
+                    image: userPhotoBuffer.toString('base64'),
+                    mimeType: 'image/jpeg',
+                    message: 'Fallback: OpenAI rate limit. Try again shortly.',
+                    fallback: true
+                });
+            }
+
+            throw apiError;
+        }
+
+        const generatedImageData = imageEditResponse.data[0].b64_json;
+
+        if (!generatedImageData) {
+            throw new Error('No image data in OpenAI response');
+        }
+
+        // Save AI output for debugging
+        const outputImageBuffer = Buffer.from(generatedImageData, 'base64');
+        fs.writeFileSync(`${debugFolder}/05-ai-output.png`, outputImageBuffer);
+        console.log(`🤖 AI output saved to: ${debugFolder}/05-ai-output.png`);
+
+        // Save debug info
+        const debugInfo = {
+            prompt,
+            requestTimestamp: debugTimestamp,
+            apiModel: 'gpt-image-1-mini',
+            responsePreview: {
+                success: true,
+                hasImage: true,
+                imageSizeBytes: generatedImageData.length
+            }
+        };
+        fs.writeFileSync(`${debugFolder}/00-debug-info.json`, JSON.stringify(debugInfo, null, 2));
+
+        console.log('📤 Sending OpenAI response...');
+        try {
+            res.json({
+                success: true,
+                image: generatedImageData,
+                mimeType: 'image/png',
+                debugFolder: debugFolder
+            });
+            console.log('✅ Response sent successfully!');
+        } catch (sendError) {
+            console.error('❌ Error sending response:', sendError);
+            res.status(500).json({ error: 'Failed to send image', message: sendError.message });
+        }
+
+    } catch (error) {
+        console.error('Image merging error:', error);
+
+        // Save error info for debugging if debugFolder exists
+        if (typeof debugFolder !== 'undefined') {
+            const errorInfo = {
+                error: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString()
+            };
+            fs.writeFileSync(`${debugFolder}/99-error.json`, JSON.stringify(errorInfo, null, 2));
+            console.log(`❌ Error info saved to: ${debugFolder}/99-error.json`);
+        }
+
+        res.status(500).json({
+            error: 'Image merging failed',
+            message: error.message,
+            debugFolder: typeof debugFolder !== 'undefined' ? debugFolder : null
+        });
+    }
+});
+
+// Alternative endpoint using a simpler AI approach
+app.post('/api/merge-images-simple', upload.fields([
+    { name: 'userPhoto', maxCount: 1 },
+    { name: 'scenePhoto', maxCount: 1 }
+]), async (req, res) => {
+    try {
+        console.log('Received simple image merge request');
+
+        if (!req.files.userPhoto || !req.files.scenePhoto) {
+            return res.status(400).json({
+                error: 'Both userPhoto and scenePhoto are required'
+            });
+        }
+        // For demo purposes, just return the user photo, in the future, could improve it by applying a simple overlay or filter
+        const userPhotoBuffer = req.files.userPhoto[0].buffer;
+        const userPhotoBase64 = userPhotoBuffer.toString('base64');
+
+        // Simulate processing delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        res.json({
+            success: true,
+            image: userPhotoBase64,
+            mimeType: 'image/jpeg',
+            message: 'Demo mode: returning user photo. Integrate with preferred AI service for actual merging.'
+        });
+
+    } catch (error) {
+        console.error('Simple image merging error:', error);
+        res.status(500).json({
+            error: 'Image merging failed',
+            message: error.message
+        });
+    }
+});
+
+
+// Start server
+app.listen(PORT, () => {
+    console.log(`🚀 RIIZE Backend Server running on http://localhost:${PORT}`);
+    console.log(`📡 Frontend URL: ${process.env.FRONTEND_URL}`);
+    console.log(`🔑 Google Cloud Project: ${process.env.GOOGLE_CLOUD_PROJECT_ID}`);
+    console.log('📋 Available endpoints:');
+    console.log('  GET  /health - Health check');
+    console.log('  GET  /api/auth/token - Get access token (legacy)');
+    console.log('  POST /api/merge-images - Merge images with Gemini 2.5 Flash');
+    console.log('  POST /api/merge-images-simple - Simple demo merge');
+});
+
+export default app;
