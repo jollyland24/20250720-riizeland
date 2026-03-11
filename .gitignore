@@ -6,6 +6,9 @@ node_modules/
 
 # Environment secrets
 .env
+service-account-key.json
+setup-gcloud.md
+vertex-ai-config.js
 
 # Debug output folder (generated at runtime)
 debug/
